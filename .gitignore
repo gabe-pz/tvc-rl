@@ -1,0 +1,10 @@
+bin/
+parameters.bin
+
+
+.DS_Store
+*.o
+*.obj
+*.so
+*.dylib
+*.dll 
