@@ -1,3 +1,4 @@
+#include <array>
 #include <random>
 
 #include "../includes/graphics/raylibFunctions.h"
@@ -38,21 +39,23 @@ int main(void){
 
     
 
-    //*****RAYLIB INITALIZATION*****
-    int FPS = 60;  
-    Camera3D camera = raylibInit(FPS);
-    int iterationsPerFrame = (1/(dt*FPS));//raylib sync 
-
-
-
     //*******STATE ARRAY INITALIZATIONS*****
     std::array<double, 4> stateQ = {1.0, 0.0, 0.0, 0.0};
 
     std::array<double, 3> velocity = {0.0, 0.0, 0.0};
     std::array<double, 3> position = {0.0, 0.0, 0.0};
+    std::array<double, 3> lastPosition = {0.0, 0.0, 0.0};
 
     std::array<double, 3> angularVelocity = {0.0, 0.0, 0.0};
     std::array<double, 2> psi ={0.0, 0.0};
+
+
+
+    //*****RAYLIB INITALIZATION*****
+    int FPS = 60;  
+    Camera3D camera = raylibInit(FPS, position);
+    int iterationsPerFrame = (1/(dt*FPS));//raylib sync 
+
 
 
     //*****SERVOS***** 
@@ -75,29 +78,39 @@ int main(void){
     //*****SIM***** 
     while (!WindowShouldClose()){
         if(!landed){
+            lastPosition = position;
 
             //main physics loop
             for(int i = 0; i < iterationsPerFrame; i++){
+
                 //*****CONTROL TIME*****
                 t += dt;
                 timeSinceLastControl += dt; 
+
 
 
                 //******CONTROL*****
                 if(timeSinceLastControl >= controlDt){
                     timeSinceLastControl = 0.0;//reset control time
 
-                    actionX = 0; 
+                    actionX = 0.1; 
                     actionY = 0;
                 }
 
+
+
                 //*****SERVO SLEW******
-                slewServo(currentServoX, actionX, dt);//keep movements of servos within physical limits
+                //keep movements of gimbal within the physical limits
+                slewServo(currentServoX, actionX, dt);
                 slewServo(currentServoY, actionY, dt);
-                
+               
+
+
                 //******PHYSICS UPDATE******
                 stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularVelocity, psi);
-                                
+                
+
+
                 //*****LANDING CHECK*****
                 if(position[2] < 0 && t > 0.5){
                     landed = true; 
@@ -107,7 +120,9 @@ int main(void){
                 
             }
         }
-        raylibDrawRocket(distanceToThrustVector, centerOfGravity, stateQ, position, camera);
+
+        raylibDrawRocket(distanceToThrustVector, centerOfGravity, stateQ, position, lastPosition, camera);
+
     }
 
 

@@ -1,7 +1,16 @@
 #include "raylibFunctions.h"
+#include <raylib.h>
 
-Camera3D raylibInit(int FPS){
-    //*****RAYLIB INITALIZATION*****
+//my (x, y, z) -> raylib (y, z, x), same as cf matrix
+Vector3 toRaylib(const std::array<double, 3>& p){
+    Vector3 out = (Vector3){(float)p[1], (float)p[2], (float)p[0]};
+    return out;
+}
+
+//init raylib 
+Camera3D raylibInit(int FPS, const std::array<double, 3>& startPosition){
+
+    //*****RAYLIB INITALIZATION***** 
     //viewing screen
     int screenWidth  = 3500;
     int screenHeight = 2000;
@@ -10,19 +19,26 @@ Camera3D raylibInit(int FPS){
     //raylib syncing things
     SetTargetFPS(FPS); 
 
-    //raylib camera 
+    //******CAMERA*****
+    Vector3 rocketPos = toRaylib(startPosition);
+
     Camera3D camera = { 0 };
-    camera.position   = (Vector3){ 10.0f, 10.0f, 10.0f };  // Camera position
-    camera.target     = (Vector3){ 0.0f, 0.0f, 0.0f };     // Camera looking-at point
-    camera.up         = (Vector3){ 0.0f, 1.0f, 0.0f };     // Camera up vector
-    camera.fovy       = 45.0f;                             // Field-of-view Y
+
+    //sit camera a fixed offset away from rocket
+    camera.position = (Vector3){rocketPos.x + 6.0f, rocketPos.y + 4.0f, rocketPos.z + 6.0f};
+    camera.target = rocketPos;
+    camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+    camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
-    DisableCursor();    
+
+    DisableCursor();
 
     return camera;
 }
 
-void raylibDrawRocket(const double distanceToThrustVector, const double centerOfGravity, const std::array<double, 4>& stateQ, const std::array<double, 3> position, Camera3D& camera){
+void raylibDrawRocket(const double distanceToThrustVector, const double centerOfGravity, const std::array<double, 4>& stateQ, const std::array<double, 3> position, 
+        const std::array<double, 3> lastPos, Camera3D& camera){
+
     //raylib rocket Dimensions
     float bodyRadius = 0.25f;
     float bodyHeight = 2.5f;
@@ -43,16 +59,26 @@ void raylibDrawRocket(const double distanceToThrustVector, const double centerOf
     float rf[16];
     quatToMat(stateQ, rf);
 
-    //Apply Update
-    UpdateCamera(&camera, CAMERA_FREE);
+    //*****CAMERA FOLLOW*****
+    Vector3 rocketPos = toRaylib(position);
+    Vector3 lastRocketPos = toRaylib(lastPos);
 
-    //focus on vectorisZ
-    if (IsKeyPressed(KEY_Z)){
-        //my x, i.e position[0] is mapped into raylibs z, and so on
-        camera.target = (Vector3){(float)position[1], (float)position[2], (float)position[0]};
-    }
-    
+    //third person = mouse orbits around target instead of free look
+    UpdateCamera(&camera, CAMERA_THIRD_PERSON);
 
+    //how far the rocket moved since last frame
+    Vector3 delta = (Vector3){rocketPos.x - lastRocketPos.x, rocketPos.y - lastRocketPos.y, rocketPos.z - lastRocketPos.z};
+
+    //drag camera along by same amount so it keeps its distance
+    camera.position.x = camera.position.x + delta.x;
+    camera.position.y = camera.position.y + delta.y;
+    camera.position.z = camera.position.z + delta.z;
+
+    camera.target = rocketPos;
+
+    lastRocketPos = rocketPos;
+
+    //*****DRAW ROCKET*****
     BeginDrawing();
         ClearBackground(RAYWHITE);
         BeginMode3D(camera);
