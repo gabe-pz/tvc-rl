@@ -16,3 +16,13 @@ std::array<float, rows> preActivationVec(const std::array<std::array<float, cols
 
 template<std::size_t N>//size of the pre-activation vector 
 std::array<float, N> activationsVec(const std::array<float, N>& y_N);
+
+//*****MLP OUTPUT*****
+struct mlpOutputTraining{
+    std::array<float, 100> y_1, a_1, y_2, a_2;
+    std::array<float, 4> y_out;
+}; 
+mlpOutputTraining mlpOutTrain(const std::array<float, 6>& stateVector, const std::array<std::array<float, 6>, 100>& w1, const std::array<std::array<float, 100>, 100>& w2, 
+        const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& b1, const std::array<float, 100>& b2, const std::array<float, 4>& b3);
+
+

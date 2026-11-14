@@ -2,6 +2,7 @@
 #include <random>
 
 #include "../includes/graphics/raylibFunctions.h"
+#include "../includes/mlp/mlpFunctions.h"
 #include "../includes/physics/rocketPhysics.h"
 #include "../includes/control/slewServos.h"
 
@@ -73,7 +74,18 @@ int main(void){
     //actions init 
     float actionX = 0.0f;
     float actionY = 0.0f;
+    
+    //******PARAMETERS****** 
+    //weight matrices 
+    std::array<std::array<float, 6>, 100> w1;
+    std::array<std::array<float, 100>, 100> w2; 
+    std::array<std::array<float, 100>, 4> w3; 
+    
+    //bias vectors
+    std::array<float, 100> b1, b2; 
+    std::array<float, 4> b3;
 
+    //load paramters(coming soon)
 
     //*****SIM***** 
     while (!WindowShouldClose()){
@@ -92,9 +104,10 @@ int main(void){
                 //******CONTROL*****
                 if(timeSinceLastControl >= controlDt){
                     timeSinceLastControl = 0.0;//reset control time
-
+                    
                     actionX = 0.1; 
                     actionY = 0;
+
                 }
 
 
