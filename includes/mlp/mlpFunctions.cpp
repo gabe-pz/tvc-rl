@@ -1,5 +1,4 @@
 #include "mlpFunctions.h"
-#include <system_error>
 
 
 //*****PARAMETERS INIT*****
@@ -93,7 +92,7 @@ std::array<float, N> activationsVec(const std::array<float, N>& y_N){
 
 
 //*****MLP OUTPUT******
-mlpOutputTraining mlpOutTrain(const std::array<float, 6>& stateVector, const std::array<std::array<float, 6>, 100>& w1, const std::array<std::array<float, 100>, 100>& w2, 
+mlpOutputTraining mlpOutTrain(const std::array<double, 6>& stateVector, const std::array<std::array<float, 6>, 100>& w1, const std::array<std::array<float, 100>, 100>& w2, 
         const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& b1, const std::array<float, 100>& b2, const std::array<float, 4>& b3){
     
     //first hidden layer cals 

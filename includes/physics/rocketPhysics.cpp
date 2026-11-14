@@ -1,7 +1,7 @@
 #include "rocketPhysics.h"
 
 void stateUpdate(const double dt, double t, double U, double sigmaU, float actionX, float actionY, float servoXOffset, float servoYOffset, std::array<std::vector<double>, 3> pinkNoise, 
-    std::array<double, 3>& position, std::array<double, 3>& velocity, std::array<double, 4>& stateQ, std::array<double, 3>& angularVelocity, std::array<double, 2>& psi){
+    std::array<double, 3>& position, std::array<double, 3>& velocity, std::array<double, 4>& stateQ, std::array<double, 3>& angularAccleration, std::array<double, 3>& angularVelocity, std::array<double, 2>& psi){
     
     //*****CONSTANT SCALARS***** 
     //rocket constants
@@ -93,7 +93,7 @@ void stateUpdate(const double dt, double t, double U, double sigmaU, float actio
     
     //****ANGULAR POSITION***** 
     //compute angular accleration
-    std::array<double, 2> angularAccleration = {sumOfTorques[0]/ Ixx, sumOfTorques[1]/ Iyy};//Tau=I(alpha)
+    angularAccleration = {sumOfTorques[0]/ Ixx, sumOfTorques[1]/ Iyy};//Tau=I(alpha)
 
     //integrate angular accleration for angular velocity 
     angularVelocity[0] += dt*angularAccleration[0];
