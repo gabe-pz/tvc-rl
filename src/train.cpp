@@ -226,12 +226,15 @@ int main(void){
 
         for(t = 0; t < numIterations; t++){
 
+            //*****RETURN_t*****
             returnT = 0.0f;
             //compute return at step t 
-            for(int k = t+1; k <= numIterations; k++){
+            for(int k = t+1; k < numIterations; k++){
                 returnT += rewardSeq.at(k);
             }
             if(t == 0) totalEpisodeReturn = returnT;
+
+            //****GRADIENT TERM*****
 
             std::cout << "Return for episode " << e << " is: " << totalEpisodeReturn << std::endl;
         }

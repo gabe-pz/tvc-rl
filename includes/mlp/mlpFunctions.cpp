@@ -23,14 +23,14 @@ void initParameters(std::array<std::array<float, 6>, 100>& w1, std::array<std::a
     //init w2
     for(int i = 0; i < 100; i++){
         for(int j = 0; j < 100; j++){
-            w1[i][j] = dist(gen);
+            w2[i][j] = dist(gen);
         }
     }
 
     //init w3
     for(int i = 0; i < 4; i++){
         for(int j = 0; j < 100; j++){
-            w1[i][j] = dist(gen);
+            w3[i][j] = dist(gen);
         }
     }
 
@@ -62,14 +62,14 @@ std::array<float, rows> preActivationVec(const std::array<std::array<float, cols
     std::array<float, rows> y_N = {0}; 
 
     //weight matrix multipled by input vector
-    for(int i = 0; i < rows; i++){
-        for(int j = 0; j < cols; j++){
+    for(int i = 0; i < (int)rows; i++){
+        for(int j = 0; j < (int)cols; j++){
             y_N[i] = y_N[i] + weightMatrix[i][j]*vecIn[j];
         }
     }
 
     //add bias to each term
-    for(int i = 0; i < rows; i++){
+    for(int i = 0; i < (int)rows; i++){
         y_N[i] = y_N[i] + biasVec[i];
     }
 
@@ -82,7 +82,7 @@ std::array<float, N> activationsVec(const std::array<float, N>& y_N){
 
     std::array<float, N> act_N;
 
-    for(int i = 0; i < N; i++){
+    for(int i = 0; i < (int)N; i++){
         act_N[i] = ReLU(y_N[i]);
     }
 
