@@ -28,9 +28,9 @@ int main(void){
     //*****WIND SETTINGS*****
     //wind generation constants
     unsigned int seed = 12345;
-    int n = (int)(simTime * GEN_FREQ) + 2;
-    double U = 5.0;  //average wind velocity
-    double intensity = 0.20; //turbulence intensity 
+    int n = (int)(simTime*GEN_FREQ) + 2;
+    double U = 5.0;//average wind velocity
+    double intensity = 0.20;//turbulence intensity 
     double sigmaU = intensity * U;
     
     //wind turbulence buffers
