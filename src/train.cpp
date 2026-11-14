@@ -90,6 +90,7 @@ int main(void){
 
 
     //*****HYPERPARAMETERS******
+    float gamma = 0.97;
     int c = -10;
     int a = 190;
     int b = 8;
@@ -230,7 +231,7 @@ int main(void){
             returnT = 0.0f;
             //compute return at step t 
             for(int k = t+1; k < numIterations; k++){
-                returnT += rewardSeq.at(k);
+                returnT += std::pow(gamma, k-t-1)*rewardSeq.at(k);
             }
             if(t == 0) totalEpisodeReturn = returnT;
 
