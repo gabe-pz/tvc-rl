@@ -86,15 +86,17 @@ int main(void){
     //return
     float returnT = 0.0f;
 
-    //*****TRAINING PARAMETERS*****
-    int numEpisodes = 50*1000;
+    //*****TRACKING VALUES*****
     int numIterations = 0;
     bool epTerminated = false;
+    double timeSum = 0.0;
 
 
-    //*****HYPERPARAMETERS******
-    float alpha = 0.0001;//step size
-    float gamma = 0.95;
+    //*****HYPERPARAMETERS****** 
+    int numEpisodes = 50*1000;
+
+    float alpha = 0.0005;//step size
+    float gamma = 0.99;
     float clippingVal = 5.5f;
 
     float lowerBoundLogSigma = -3.0f;
@@ -102,7 +104,7 @@ int main(void){
 
     float a = 190.5f;//reward angular exp constant
     float b = 5.0f;//reward angularV constant
-    float c = -10.0f;//termination reward
+    float c = -25.0f;//termination reward
                 
     //*****TRAINING LOOP*****
     for(int e = 0; e < numEpisodes; e++){
@@ -254,6 +256,7 @@ int main(void){
             //physics update
             stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularAccleration, angularVelocity, angularPosition);
         }
+        timeSum += t;
 
         //log final reward at end of episode if not terminated 
         if(!epTerminated){
@@ -338,7 +341,11 @@ int main(void){
         updateParameters(gradTerm, w1, w2, w3, b1, b2, b3);
 
 
-        if(e % 1000 == 0 || e == numEpisodes-1)std::cout << "Total return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
+        if((e % 1000 == 0 && e > 0) || e == numEpisodes-1){
+            std::cout << "************************************************************" << std::endl;
+            std::cout << "Total discounted return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
+            std::cout << "Average flight time was: " << timeSum /(e*1.0) << "s" << std::endl;
+        }
     }
 
     return 0;

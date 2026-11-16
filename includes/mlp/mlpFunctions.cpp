@@ -11,26 +11,27 @@ void initParameters(std::array<std::array<float, 4>, 100>& w1, std::array<std::a
     std::mt19937 gen(rd());
 
     //distribution populate weights from
-    std::uniform_real_distribution<float> dist(-0.77, 0.77);//number from formula of x = sqrt(6/(n_in+n_out)) 
-                                                               
+    std::uniform_real_distribution<float> dist1(-1.22, 1.22);//number from formula of x = sqrt(6/(n_in))                                                            
+    std::uniform_real_distribution<float> dist2(-0.24, 0.24);//number from formula of x = sqrt(6/(n_in))                                                      
+    std::uniform_real_distribution<float> dist3(-0.005, 0.005);
     //init w1 
     for(int i = 0; i < 100; i++){
         for(int j = 0; j < 4; j++){
-            w1[i][j] = dist(gen);
+            w1[i][j] = dist1(gen);
         }
     }
 
     //init w2
     for(int i = 0; i < 100; i++){
         for(int j = 0; j < 100; j++){
-            w2[i][j] = dist(gen);
+            w2[i][j] = dist2(gen);
         }
     }
 
     //init w3
     for(int i = 0; i < 4; i++){
         for(int j = 0; j < 100; j++){
-            w3[i][j] = dist(gen);
+            w3[i][j] = dist3(gen);
         }
     }
 
