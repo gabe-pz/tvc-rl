@@ -24,7 +24,7 @@ float derivativePreActWrtWeight(const std::array<T, N>& inputVector, int j){
 
 
 //******GRADIENT PARTS******
-std::array<float, 600> gradientLogPolicy_1(const std::array<std::array<float, 100>, 100>& w2, const std::array<std::array<float, 100>, 4>& w3,
+std::array<float, 600> gradientLogPolicy_1(const std::array<std::array<float, 100>, 100>& w2, const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& y1,
         const std::array<float, 100>& y2, const std::array<double, 6>& stateVec, const std::array<float, 2>& terms_i, int meanIndex){
 
     std::array<float, 600> gLP1;
@@ -49,8 +49,8 @@ std::array<float, 600> gradientLogPolicy_1(const std::array<std::array<float, 10
 
         //vectors for terms for the derivatives of outputs
         for(int j = 0; j < 6; j++){
-            float derivativeMu = derivativeActWrtPreAct(y2, i)*derivativePreActWrtWeight(stateVec, j)*sumTermMu;
-            float derivativeLogSigma = derivativeActWrtPreAct(y2, i)*derivativePreActWrtWeight(stateVec, j)*sumTermLogSigma;
+            float derivativeMu = derivativeActWrtPreAct(y1, i)*derivativePreActWrtWeight(stateVec, j)*sumTermMu;
+            float derivativeLogSigma = derivativeActWrtPreAct(y1, i)*derivativePreActWrtWeight(stateVec, j)*sumTermLogSigma;
 
             derivativeTermsMu[6*i+j] = derivativeMu;
             derivativeTermsLogSigma[6*i+j] = derivativeLogSigma;
@@ -65,7 +65,7 @@ std::array<float, 600> gradientLogPolicy_1(const std::array<std::array<float, 10
     return gLP1;
 }
 
-std::array<float, 100> gradientLogPolicy_2(const std::array<std::array<float, 100>, 100>& w2, const std::array<std::array<float, 100>, 4>& w3,
+std::array<float, 100> gradientLogPolicy_2(const std::array<std::array<float, 100>, 100>& w2, const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& y1,
         const std::array<float, 100>& y2, const std::array<float, 2>& terms_i, int meanIndex){
 
     std::array<float, 100> gLP2; 
@@ -89,8 +89,8 @@ std::array<float, 100> gradientLogPolicy_2(const std::array<std::array<float, 10
         }
 
         //vectors for terms for the derivatives of outputs
-        float derivativeMu = derivativeActWrtPreAct(y2, i)*sumTermMu;
-        float derivativeLogSigma = derivativeActWrtPreAct(y2, i)*sumTermLogSigma;
+        float derivativeMu = derivativeActWrtPreAct(y1, i)*sumTermMu;
+        float derivativeLogSigma = derivativeActWrtPreAct(y1, i)*sumTermLogSigma;
 
         derivativeTermsMu[i] = derivativeMu;
         derivativeTermsLogSigma[i] = derivativeLogSigma;
@@ -106,7 +106,7 @@ std::array<float, 100> gradientLogPolicy_2(const std::array<std::array<float, 10
 }
 
 
-std::array<float, 10000> gradientLogPolicy_3(const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& y2, const std::array<float, 100>& y1, 
+std::array<float, 10000> gradientLogPolicy_3(const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& y2, const std::array<float, 100>& a1, 
         const std::array<float, 2>& terms_i, int meanIndex){
 
     std::array<float, 10000> gLP3;
@@ -121,7 +121,7 @@ std::array<float, 10000> gradientLogPolicy_3(const std::array<std::array<float, 
         float derivativeTerm2 = derivativeActWrtPreAct(y2, i);
 
         for(int j = 0; j < 100; j++){
-            float derivativeTerm3 = derivativePreActWrtWeight(y1, j);
+            float derivativeTerm3 = derivativePreActWrtWeight(a1, j);
 
             derivativeTermsMu[100*i+j] = derivativeTerm1Mu*derivativeTerm2*derivativeTerm3;
             derivativeTermsLogSigma[100*i+j] = derivativeTerm1LogSigma*derivativeTerm2*derivativeTerm3;
@@ -160,38 +160,48 @@ std::array<float, 100> gradientLogPolicy_4(const std::array<std::array<float, 10
     return gLP4;
 }
 
+std::array<float, 400> gradientLogPolicy_5(const std::array<float, 100>& a2, const std::array<float, 2>& terms_i, int meanIndex){
+    std::array<float, 400> gLP5 = {0};
 
-std::array<float, 400> gradientLogPolicy_5(const std::array<float, 100>& y2, const std::array<float, 2>& terms_i){
+    //determine if outputs corresponding to x or y
+    if(meanIndex == 0){
 
-    std::array<float, 400> gLP5;
+        for(int i = meanIndex; i < meanIndex+2; i++){
 
-    std::array<float, 400> derivativeTermsMu;
-    std::array<float, 400> derivativeTermsLogSigma;
+            for(int j = 0; j < 100; j++){
+                if(i == meanIndex) gLP5[100*i+j] = terms_i[0]*derivativePreActWrtWeight(a2, j);
+                else gLP5[100*i+j] = terms_i[1]*derivativePreActWrtWeight(a2, j);
+            }
 
+        }
+    }
+    else{
 
-    for(int i = 0; i < 4; i++){
-        for(int j = 0; j < 100; j++){
-            derivativeTermsMu[4*i+j] = derivativePreActWrtWeight(y2, j);
-            derivativeTermsLogSigma[4*i+j] = derivativeTermsMu[4*i+j];
+        for(int i = meanIndex; i < meanIndex+2; i++){
+
+            for(int j = 0; j < 100; j++){
+                if(i == meanIndex) gLP5[100*i+j] = terms_i[0]*derivativePreActWrtWeight(a2, j);
+                else gLP5[100*i+j] = terms_i[1]*derivativePreActWrtWeight(a2, j);
+            }
+
         }
     }
 
-    for(int i = 0; i < 400; i++){
-        gLP5[i] = terms_i[0]*derivativeTermsMu[i] + terms_i[1]*derivativeTermsLogSigma[i];
-    }
 
     return gLP5;
 }
+std::array<float, 4> gradientLogPolicy_6(const std::array<float, 2>& terms_i, int meanIndex){
 
-std::array<float, 4> gradientLogPolicy_6(const std::array<float, 2>& terms_i){
-    std::array<float, 4> gLP6;
-
-    std::array<float, 4> derivativeTermsMu = {1.0, 1.0, 1.0, 1.0};
-    std::array<float, 4> derivativeTermsLogSigma = {1.0, 1.0, 1.0, 1.0};
-
-    for(int i = 0; i < 4; i++){
-        gLP6[i] = terms_i[0]*derivativeTermsMu[i] + terms_i[1]*derivativeTermsLogSigma[i];
+    //determine if outputs corresponding to x or y
+    //x
+    if(meanIndex == 0){
+        std::array<float, 4> gLP6 = {terms_i[0], terms_i[1], 0.0f, 0.0f};
+        return gLP6;
     }
 
-    return gLP6;
+    //y
+    else{
+        std::array<float, 4> gLP6 = {0.0f, 0.0f, terms_i[0], terms_i[1]};
+        return gLP6;
+    }
 }

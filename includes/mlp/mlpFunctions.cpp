@@ -34,10 +34,10 @@ void initParameters(std::array<std::array<float, 6>, 100>& w1, std::array<std::a
         }
     }
 
-    //init biases to zero 
+    //init biases 
     b1.fill(0.0f);
     b2.fill(0.0f);
-    b1.fill(0.0f);
+    b3.fill(0.0f);
 }
 
 
