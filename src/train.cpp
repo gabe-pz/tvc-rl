@@ -87,13 +87,13 @@ int main(void){
     float returnT = 0.0f;
 
     //*****TRAINING PARAMETERS*****
-    int numEpisodes = 10;
+    int numEpisodes = 50*1000;
     int numIterations = 0;
     bool epTerminated = false;
 
 
     //*****HYPERPARAMETERS******
-    float alpha = 0.00001;//step size
+    float alpha = 0.0001;//step size
     float gamma = 0.95;
     float clippingVal = 5.5f;
 
@@ -216,8 +216,6 @@ int main(void){
                 float logSigmaXRaw = mlpOut.y_out[1];
                 float logSigmaX = std::clamp(logSigmaXRaw, lowerBoundLogSigma, upperBoundLogSigma);
 
-                std::cout << "meanX: " << meanX << std::endl;
-                std::cout << "logSigmaX: " << logSigmaX << std::endl;
 
                 float standardDevX = std::exp(logSigmaX);//e^log(sigma_x) = sigma_x
                
@@ -227,8 +225,6 @@ int main(void){
                 float logSigmaYRaw = mlpOut.y_out[3];
                 float logSigmaY = std::clamp(logSigmaYRaw, lowerBoundLogSigma, upperBoundLogSigma);
 
-                std::cout << "meanY: " << meanY << std::endl;
-                std::cout << "logSigmaY: " << logSigmaY << std::endl;
 
                 float standardDevY = std::exp(logSigmaY);//e^log(sigma_y) = sigma_y                                       
 
@@ -272,7 +268,7 @@ int main(void){
 
         
         float totalEpisodeReturn = 0.0f;
-        std::array<float, 11004> accumlatedGradTerm = {0};
+        std::array<float, 11004> accumlatedGrad = {0};
         bool isNan = false;
         bool logSigmaXClamped = false;
         bool logSigmaYClamped = false;
@@ -318,28 +314,31 @@ int main(void){
             std::array<float, 11004> gradLogPolicy_y = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionY, meanY, standardDevY, 2, logSigmaYClamped);
 
             //assemble full gradient term 
-            std::array<float, 11004> gradTerm = gradientTerm(gradLogPolicy_x, gradLogPolicy_y, returnT, alpha, gamma, t, clippingVal);
+            std::array<float, 11004> gradTerm_t = gradientTerm_t(gradLogPolicy_x, gradLogPolicy_y, returnT, t);
 
             //accumalte gradientTerm 
             for(int i = 0; i < 11004; i++){
-                isNan = std::isnan(gradTerm[i]);
+                isNan = std::isnan(gradTerm_t[i]);
                 if(isNan){
-                    std::cout << "gradTerm[" << i << "] = " << gradTerm[i] << " at time step " << t << std::endl;
+                    std::cout << "gradTerm_t[" << i << "] = " << gradTerm_t[i] << " at time step " << t << std::endl;
                     break;
                 }
 
-                accumlatedGradTerm[i] += gradTerm[i];
-                if(accumlatedGradTerm[i] > 100) std::cout << accumlatedGradTerm[i] << std::endl;
+                accumlatedGrad[i] += gradTerm_t[i];
             }
 
             if(isNan) break;
         }
-
         if(isNan) break;
-        if(e % 1000 == 0 || e == numEpisodes-1)std::cout << "Total return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
 
-        //******UPDATE PARAMTERS*****
-        updateParameters(accumlatedGradTerm, w1, w2, w3, b1, b2, b3);
+        //******APPLY UPDATE TO PARAMETERS******
+        std::array<float, 11004> gradTerm = gradientTerm(accumlatedGrad, alpha, clippingVal);
+
+
+        updateParameters(gradTerm, w1, w2, w3, b1, b2, b3);
+
+
+        if(e % 1000 == 0 || e == numEpisodes-1)std::cout << "Total return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
     }
 
     return 0;

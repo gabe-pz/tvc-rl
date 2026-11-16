@@ -62,41 +62,48 @@ std::array<float, 11004> gradLogPolicy_i(const std::array<std::array<float, 100>
 }
 
 
-std::array<float, 11004> gradientTerm(const std::array<float, 11004>& gradLPx, const std::array<float, 11004>& gradLPy, float returnT, float alpha, float gamma, int t, float c){
-    std::array<float, 11004> gradTerm_raw;
-    std::array<float, 11004> gradTerm;
+std::array<float, 11004> gradientTerm_t(const std::array<float, 11004>& gradLPx, const std::array<float, 11004>& gradLPy, float returnT, int t){
+    std::array<float, 11004> gradTerm_t;
 
-    float delta_t = returnT*std::pow(gamma, t);
+    float delta_t = returnT;
 
     //add grad log pi x and grad log pi y together
     for(int i = 0; i < 11004; i++){
-        gradTerm_raw[i] = delta_t*(gradLPx[i]+gradLPy[i]);
+        gradTerm_t[i] = delta_t*(gradLPx[i]+gradLPy[i]);
     }
     
-    //******GRADIENT CLIPPING BY NORM******
+    return gradTerm_t;
+}
+
+
+std::array<float, 11004> gradientTerm(const std::array<float, 11004>& accumaltedGradTerm, float alpha, float clipVal){
+
+    std::array<float, 11004> gradTerm;
+
+    //******GRADIENT CLIPPING BY NORM*****
     float magnitude = 0.0f;
     for(int i = 0; i < 11004; i++){
-        magnitude += gradTerm_raw[i]*gradTerm_raw[i];
+        magnitude += accumaltedGradTerm[i]*accumaltedGradTerm[i];
     }
     magnitude = std::sqrt(magnitude);
 
-    if(magnitude > c){
+    if(magnitude > clipVal){
         for(int i = 0; i < 11004; i++){
-            gradTerm[i] = alpha*c*(gradTerm_raw[i] / magnitude);
+            gradTerm[i] = alpha*clipVal*(accumaltedGradTerm[i]/magnitude);
         }
     }
     else{
         for(int i = 0; i < 11004; i++){
-            gradTerm[i] = alpha*gradTerm_raw[i];
+            gradTerm[i] = alpha*accumaltedGradTerm[i];
         }
     }
 
-    
     return gradTerm;
 }
 
 
-void updateParameters(const std::array<float, 11004>& accumaltedGradTerm, std::array<std::array<float, 4>, 100>& w1, std::array<std::array<float, 100>, 100>& w2, 
+
+void updateParameters(const std::array<float, 11004>& gradTerm, std::array<std::array<float, 4>, 100>& w1, std::array<std::array<float, 100>, 100>& w2, 
         std::array<std::array<float, 100>, 4>& w3, std::array<float, 100>& b1, std::array<float, 100>& b2, std::array<float, 4>& b3){
     
     int index = 0;
@@ -104,40 +111,40 @@ void updateParameters(const std::array<float, 11004>& accumaltedGradTerm, std::a
     //update w1 
     for(int i = 0; i < 100; i++){
         for(int j = 0; j < 4; j++){
-            w1[i][j] += accumaltedGradTerm[index];
+            w1[i][j] += gradTerm[index];
             index++;
         }
     }
     //update b1
     for(int i = 0; i < 100; i++){
-        b1[i] += accumaltedGradTerm[index];
+        b1[i] += gradTerm[index];
         index++;
     }
 
     //update w2
     for(int i = 0; i < 100; i++){
         for(int j = 0; j < 100; j++){
-            w2[i][j] += accumaltedGradTerm[index];
+            w2[i][j] += gradTerm[index];
             index++;
         }
     }
     //update b2
     for(int i = 0; i < 100; i++){
-        b2[i] += accumaltedGradTerm[index];
+        b2[i] += gradTerm[index];
         index++;
     }
 
     //update w3
     for(int i = 0; i < 4; i++){
         for(int j = 0; j < 100; j++){
-            w3[i][j] += accumaltedGradTerm[index];
+            w3[i][j] += gradTerm[index];
             index++;
         }
     }
 
     //update b3
     for(int i = 0; i < 4; i++){
-        b3[i] += accumaltedGradTerm[index];
+        b3[i] += gradTerm[index];
         index++;
     }
 }
