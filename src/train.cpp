@@ -87,17 +87,21 @@ int main(void){
     float returnT = 0.0f;
 
     //*****TRAINING PARAMETERS*****
-    int numEpisodes = 10000;
+    int numEpisodes = 55000;
     int numIterations = 0;
     bool epTerminated = false;
 
 
     //*****HYPERPARAMETERS******
-    float alpha = 0.000001;//step size
+    float alpha = 0.00007;//step size
     float gamma = 0.97;
+    float clippingVal = 2.7f;
+
+    float lowerBoundExp = 1.25f;
+    float upperBoundExp = 7.25f;
 
     int a = 190;//reward angular exp constant
-    int b = 8;//reward angularV constant
+    int b = 7;//reward angularV constant
     int c = -10;//termination reward
                 
     //*****TRAINING LOOP*****
@@ -210,13 +214,13 @@ int main(void){
                 float meanX = mlpOut.y_out[0];
                 float logSigmaX = mlpOut.y_out[1];
                 float standardDevX_raw = std::exp(logSigmaX);//e^log(sigma_x) = sigma_x
-                float standardDevX = std::clamp(standardDevX_raw, 0.25f, 5.0f);
+                float standardDevX = std::clamp(standardDevX_raw, lowerBoundExp, upperBoundExp);
                 
                 
                 float meanY = mlpOut.y_out[2];
                 float logSigmaY = mlpOut.y_out[3];
                 float standardDevY_raw = std::exp(logSigmaY);//e^log(sigma_y) = sigma_y                                       
-                float standardDevY = std::clamp(standardDevY_raw, 0.25f, 5.0f);
+                float standardDevY = std::clamp(standardDevY_raw, lowerBoundExp, upperBoundExp);
 
 
                 std::normal_distribution<float> gaussianX(meanX, standardDevX);
@@ -277,7 +281,7 @@ int main(void){
             float logSigmaX = y3Mat[t][1];
 
             float standardDevX_raw = std::exp(logSigmaX);
-            float standardDevX = std::clamp(standardDevX_raw, 0.25f, 5.0f);
+            float standardDevX = std::clamp(standardDevX_raw, lowerBoundExp, upperBoundExp);
 
             float actionX = actionsMat[t][0];
             std::array<float, 11204> gradLogPolicy_x = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionX, meanX, standardDevX, 0);
@@ -288,14 +292,14 @@ int main(void){
             float logSigmaY = y3Mat[t][3];
 
             float standardDevY_raw = std::exp(logSigmaY);
-            float standardDevY = std::clamp(standardDevY_raw, 0.25f, 5.0f);
+            float standardDevY = std::clamp(standardDevY_raw, lowerBoundExp, upperBoundExp);
 
             float actionY = actionsMat[t][1];
             
             std::array<float, 11204> gradLogPolicy_y = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionY, meanY, standardDevY, 2);
 
             //assemble full gradient term 
-            std::array<float, 11204> gradTerm = gradientTerm(gradLogPolicy_x, gradLogPolicy_y, returnT, alpha, gamma, t);
+            std::array<float, 11204> gradTerm = gradientTerm(gradLogPolicy_x, gradLogPolicy_y, returnT, alpha, gamma, t, clippingVal);
 
             //accumalte gradientTerm 
             for(int i = 0; i < 11204; i++){
@@ -305,11 +309,12 @@ int main(void){
                     break;
                 }
                 accumlatedGradTerm[i] += gradTerm[i];
+                if(accumlatedGradTerm[i] > 100) std::cout << accumlatedGradTerm[i] << std::endl;
             }
         }
         if(isNan) break;
 
-        std::cout << "Total return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
+        if(e % 1000 == 0 || e == numEpisodes-1)std::cout << "Total return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
 
         //******UPDATE PARAMTERS*****
         updateParameters(accumlatedGradTerm, w1, w2, w3, b1, b2, b3);

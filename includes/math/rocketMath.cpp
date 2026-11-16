@@ -5,14 +5,14 @@
 double rad2deg(double angle){
     //input rads, out degs 
     
-    long double PI = 3.141592653589; //aka 22/7
+    long double PI = 3.141592653589;
 
     return((180/PI) * angle);
 }
 double deg2rad(double angle){
     //input rads, out degs 
     
-    long double PI = 3.141592653589; //aka 22/7
+    long double PI = 3.141592653589; 
     
     return((PI/180) * angle);
 }

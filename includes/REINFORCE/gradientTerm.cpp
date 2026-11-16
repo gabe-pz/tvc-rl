@@ -57,14 +57,35 @@ std::array<float, 11204> gradLogPolicy_i(const std::array<std::array<float, 100>
 }
 
 
-std::array<float, 11204> gradientTerm(const std::array<float, 11204>& gradLPx, const std::array<float, 11204>& gradLPy, float returnT, float alpha, float gamma, int t){
+std::array<float, 11204> gradientTerm(const std::array<float, 11204>& gradLPx, const std::array<float, 11204>& gradLPy, float returnT, float alpha, float gamma, int t, float c){
+    std::array<float, 11204> gradTerm_raw;
     std::array<float, 11204> gradTerm;
-    
+
+    float delta_t = returnT*std::pow(gamma, t);
+
     //add grad log pi x and grad log pi y together
     for(int i = 0; i < 11204; i++){
-        float delta_t = alpha*returnT*std::pow(gamma, t);
-        gradTerm[i] = delta_t*(gradLPx[i]+gradLPy[i]);
+        gradTerm_raw[i] = delta_t*(gradLPx[i]+gradLPy[i]);
     }
+    
+    //******GRADIENT CLIPPING BY NORM******
+    float magnitude = 0.0f;
+    for(int i = 0; i < 11204; i++){
+        magnitude += gradTerm_raw[i]*gradTerm_raw[i];
+    }
+    magnitude = std::sqrt(magnitude);
+
+    if(magnitude > c){
+        for(int i = 0; i < 11204; i++){
+            gradTerm[i] = alpha*c*(gradTerm_raw[i] / magnitude);
+        }
+    }
+    else{
+        for(int i = 0; i < 11204; i++){
+            gradTerm[i] = alpha*gradTerm_raw[i];
+        }
+    }
+
     
     return gradTerm;
 }
