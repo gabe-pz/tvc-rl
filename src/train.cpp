@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <random>
 #include <vector>
 #include <cmath>
@@ -17,7 +18,7 @@ int main(void){
     //*****SIMULATION SETTINGS*****
     //main settings
     const double dt = 0.0001;
-    const int simTime = tBurn; 
+    const double simTime = tBurn; 
     double t = 0.0;
 
     //speed to run control at
@@ -43,7 +44,7 @@ int main(void){
     float actionY = 0.0f;
    
     //set servos offset
-    std::uniform_real_distribution<float> dist(0.017f, 0.034f);//misalignment between 1 and 2 deg
+    std::uniform_real_distribution<float> dist(-0.017f, 0.034f);//misalignment between -1 and 2 deg
     float servosXOffset = dist(gen);
     float servosYOffset = dist(gen);
 
@@ -86,12 +87,13 @@ int main(void){
     float returnT = 0.0f;
 
     //*****TRAINING PARAMETERS*****
-    int numEpisodes = 1;
+    int numEpisodes = 10000;
     int numIterations = 0;
+    bool epTerminated = false;
 
 
     //*****HYPERPARAMETERS******
-    float alpha = 0.0001;//step size
+    float alpha = 0.000001;//step size
     float gamma = 0.97;
 
     int a = 190;//reward angular exp constant
@@ -120,6 +122,7 @@ int main(void){
 
         //*****RESET ALL*****
         //time and counters
+        epTerminated = false;
         t = 0.0; 
         timeSinceLastControl = controlDt; 
         numIterations = 0;
@@ -173,6 +176,7 @@ int main(void){
 
                         //reward for case where angles greater than termination angles
                         rewardSeq.push_back(c);
+                        epTerminated = true;
 
                         break;//terminate episode
                     }
@@ -180,7 +184,7 @@ int main(void){
                     //reward for otherwise 
                     float expRewardTerm = std::exp(-a*(angularPosition[0]*angularPosition[0] + angularPosition[1]*angularPosition[1]));
                     float squaredSumRewardTerm = b*(angularVelocity[0]*angularVelocity[0] + angularVelocity[1]*angularVelocity[1]);
-                    float reward = expRewardTerm + squaredSumRewardTerm;
+                    float reward = expRewardTerm - squaredSumRewardTerm;
                     
                     rewardSeq.push_back(reward);
                     
@@ -205,11 +209,15 @@ int main(void){
                 //*****ACTION*****
                 float meanX = mlpOut.y_out[0];
                 float logSigmaX = mlpOut.y_out[1];
-                float standardDevX = std::exp(logSigmaX);//e^log(sigma_x) = sigma_x
-
+                float standardDevX_raw = std::exp(logSigmaX);//e^log(sigma_x) = sigma_x
+                float standardDevX = std::clamp(standardDevX_raw, 0.25f, 5.0f);
+                
+                
                 float meanY = mlpOut.y_out[2];
                 float logSigmaY = mlpOut.y_out[3];
-                float standardDevY = std::exp(logSigmaY);//e^log(sigma_y) = sigma_y
+                float standardDevY_raw = std::exp(logSigmaY);//e^log(sigma_y) = sigma_y                                       
+                float standardDevY = std::clamp(standardDevY_raw, 0.25f, 5.0f);
+
 
                 std::normal_distribution<float> gaussianX(meanX, standardDevX);
                 std::normal_distribution<float> gaussianY(meanY, standardDevY);
@@ -221,7 +229,7 @@ int main(void){
                 actionX = 0.087*std::tanh(rawActionX);//multiply by 0.087 rads(5 degs) such that scale up to be within action space
                 actionY = 0.087*std::tanh(rawActionY);
 
-                actionsMat.push_back({actionX, actionY});//log the actions
+                actionsMat.push_back({rawActionX, rawActionY});//log the actions
 
                 //increment next step for use of indexing in update rule 
                 numIterations ++;
@@ -236,17 +244,29 @@ int main(void){
             stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularAccleration, angularVelocity, angularPosition);
         }
 
+        //log final reward at end of episode if not terminated 
+        if(!epTerminated){
+
+            //reward for otherwise 
+            float expRewardTerm = std::exp(-a*(angularPosition[0]*angularPosition[0] + angularPosition[1]*angularPosition[1]));
+            float squaredSumRewardTerm = b*(angularVelocity[0]*angularVelocity[0] + angularVelocity[1]*angularVelocity[1]);
+            float reward = expRewardTerm - squaredSumRewardTerm;
+            
+            rewardSeq.push_back(reward);
+        }
+
+        
         float totalEpisodeReturn = 0.0f;
         std::array<float, 11204> accumlatedGradTerm = {0};
         bool isNan = false;
 
-        for(t = 0; t < numIterations; t++){
+        for(int t = 0; t < numIterations; t++){
             //*****RETURN_t*****
             returnT = 0.0f;
 
             //compute return at step t 
             for(int k = t; k < numIterations; k++){
-                returnT += std::pow(gamma, k-t-1)*rewardSeq.at(k);
+                returnT += std::pow(gamma, k-t)*rewardSeq.at(k);
 
             }
             if(t == 0) totalEpisodeReturn = returnT;
@@ -254,14 +274,22 @@ int main(void){
             //****GRADIENT TERM*****
             //gradLP_x
             float meanX = y3Mat[t][0];
-            float standardDevX = std::exp(y3Mat[t][1]);
+            float logSigmaX = y3Mat[t][1];
+
+            float standardDevX_raw = std::exp(logSigmaX);
+            float standardDevX = std::clamp(standardDevX_raw, 0.25f, 5.0f);
+
             float actionX = actionsMat[t][0];
             std::array<float, 11204> gradLogPolicy_x = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionX, meanX, standardDevX, 0);
 
 
             //gradLP_y
             float meanY = y3Mat[t][2];
-            float standardDevY = std::exp(y3Mat[t][3]);
+            float logSigmaY = y3Mat[t][3];
+
+            float standardDevY_raw = std::exp(logSigmaY);
+            float standardDevY = std::clamp(standardDevY_raw, 0.25f, 5.0f);
+
             float actionY = actionsMat[t][1];
             
             std::array<float, 11204> gradLogPolicy_y = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionY, meanY, standardDevY, 2);
@@ -276,13 +304,12 @@ int main(void){
                     std::cout << "gradTerm[" << i << "] = " << gradTerm[i] << " at time step " << t << std::endl;
                     break;
                 }
-
                 accumlatedGradTerm[i] += gradTerm[i];
-
-                std::cout << "gradTerm[" << i << "] = " << gradTerm[i] << std::endl;
             }
-            if(isNan) break;
         }
+        if(isNan) break;
+
+        std::cout << "Total return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
 
         //******UPDATE PARAMTERS*****
         updateParameters(accumlatedGradTerm, w1, w2, w3, b1, b2, b3);
