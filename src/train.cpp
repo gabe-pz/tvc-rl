@@ -28,7 +28,7 @@ int main(void){
 
 
     //*******STATE ARRAY INITALIZATIONS***** 
-    std::array<double, 6> stateVector;
+    std::array<double, 4> stateVector;
 
     std::array<double, 4> stateQ;
 
@@ -55,7 +55,7 @@ int main(void){
 
     //******PARAMETERS****** 
     //weight matrices 
-    std::array<std::array<float, 6>, 100> w1;
+    std::array<std::array<float, 4>, 100> w1;
     std::array<std::array<float, 100>, 100> w2; 
     std::array<std::array<float, 100>, 4> w3; 
     
@@ -79,7 +79,7 @@ int main(void){
     std::vector<std::array<float, 4>> a3Mat;
 
     //SAR, matrices and sequence
-    std::vector<std::array<double, 6>> stateVectorMat;
+    std::vector<std::array<double, 4>> stateVectorMat;
     std::vector<std::array<float, 2>> actionsMat;
     std::vector<float> rewardSeq;
 
@@ -87,22 +87,22 @@ int main(void){
     float returnT = 0.0f;
 
     //*****TRAINING PARAMETERS*****
-    int numEpisodes = 55000;
+    int numEpisodes = 10;
     int numIterations = 0;
     bool epTerminated = false;
 
 
     //*****HYPERPARAMETERS******
-    float alpha = 0.00007;//step size
-    float gamma = 0.97;
-    float clippingVal = 2.7f;
+    float alpha = 0.00001;//step size
+    float gamma = 0.95;
+    float clippingVal = 5.5f;
 
-    float lowerBoundExp = 1.25f;
-    float upperBoundExp = 7.25f;
+    float lowerBoundLogSigma = -3.0f;
+    float upperBoundLogSigma = 0.2f;
 
-    int a = 190;//reward angular exp constant
-    int b = 7;//reward angularV constant
-    int c = -10;//termination reward
+    float a = 190.5f;//reward angular exp constant
+    float b = 5.0f;//reward angularV constant
+    float c = -10.0f;//termination reward
                 
     //*****TRAINING LOOP*****
     for(int e = 0; e < numEpisodes; e++){
@@ -132,7 +132,7 @@ int main(void){
         numIterations = 0;
 
         //vectors
-        stateVector = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+        stateVector = {0.0, 0.0, 0.0, 0.0};
 
         stateQ = {1.0, 0.0, 0.0, 0.0};
 
@@ -176,7 +176,7 @@ int main(void){
                 //ensure only getting reward after initial action
                 if(i > 0){
                     //analyze state for reward
-                    if(std::abs(angularPosition[0]) > 0.17 || std::abs(angularPosition[1]) > 0.17){
+                    if(std::abs(angularPosition[0]) > 0.27 || std::abs(angularPosition[1]) > 0.27){
 
                         //reward for case where angles greater than termination angles
                         rewardSeq.push_back(c);
@@ -195,7 +195,7 @@ int main(void){
                 }
 
                 //*****STATE*****
-                stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1], angularAccleration[0], angularAccleration[1]}; 
+                stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]}; 
                 stateVectorMat.push_back(stateVector);
 
                 //*****MLP PROPAGATION*****
@@ -210,19 +210,30 @@ int main(void){
 
                 y3Mat.push_back(mlpOut.y_out);
 
-                //*****ACTION*****
+                //*****NETWORK OUTPUTS******
+                //x outputs
                 float meanX = mlpOut.y_out[0];
-                float logSigmaX = mlpOut.y_out[1];
-                float standardDevX_raw = std::exp(logSigmaX);//e^log(sigma_x) = sigma_x
-                float standardDevX = std::clamp(standardDevX_raw, lowerBoundExp, upperBoundExp);
-                
-                
+                float logSigmaXRaw = mlpOut.y_out[1];
+                float logSigmaX = std::clamp(logSigmaXRaw, lowerBoundLogSigma, upperBoundLogSigma);
+
+                std::cout << "meanX: " << meanX << std::endl;
+                std::cout << "logSigmaX: " << logSigmaX << std::endl;
+
+                float standardDevX = std::exp(logSigmaX);//e^log(sigma_x) = sigma_x
+               
+                    
+                //y outputs 
                 float meanY = mlpOut.y_out[2];
-                float logSigmaY = mlpOut.y_out[3];
-                float standardDevY_raw = std::exp(logSigmaY);//e^log(sigma_y) = sigma_y                                       
-                float standardDevY = std::clamp(standardDevY_raw, lowerBoundExp, upperBoundExp);
+                float logSigmaYRaw = mlpOut.y_out[3];
+                float logSigmaY = std::clamp(logSigmaYRaw, lowerBoundLogSigma, upperBoundLogSigma);
+
+                std::cout << "meanY: " << meanY << std::endl;
+                std::cout << "logSigmaY: " << logSigmaY << std::endl;
+
+                float standardDevY = std::exp(logSigmaY);//e^log(sigma_y) = sigma_y                                       
 
 
+                //*******ACTIONS******
                 std::normal_distribution<float> gaussianX(meanX, standardDevX);
                 std::normal_distribution<float> gaussianY(meanY, standardDevY);
 
@@ -239,7 +250,7 @@ int main(void){
                 numIterations ++;
             }
             
-            //*****UPDATE IN SIM*****
+            //*****UPDATE IN ENV*****
             //slew the servos to ensure only moving within physical limits
             slewServo(currentServoX, actionX, dt);//x slew
             slewServo(currentServoY, actionY, dt);//y slew
@@ -261,8 +272,10 @@ int main(void){
 
         
         float totalEpisodeReturn = 0.0f;
-        std::array<float, 11204> accumlatedGradTerm = {0};
+        std::array<float, 11004> accumlatedGradTerm = {0};
         bool isNan = false;
+        bool logSigmaXClamped = false;
+        bool logSigmaYClamped = false;
 
         for(int t = 0; t < numIterations; t++){
             //*****RETURN_t*****
@@ -278,42 +291,51 @@ int main(void){
             //****GRADIENT TERM*****
             //gradLP_x
             float meanX = y3Mat[t][0];
-            float logSigmaX = y3Mat[t][1];
+            float logSigmaXRaw = y3Mat[t][1];
+            float logSigmaX = std::clamp(logSigmaXRaw, lowerBoundLogSigma, upperBoundLogSigma);
 
-            float standardDevX_raw = std::exp(logSigmaX);
-            float standardDevX = std::clamp(standardDevX_raw, lowerBoundExp, upperBoundExp);
+            if(logSigmaX == lowerBoundLogSigma || logSigmaX == upperBoundLogSigma) logSigmaXClamped = true;
+            else logSigmaXClamped = false;
+
+            float standardDevX = std::exp(logSigmaX);
 
             float actionX = actionsMat[t][0];
-            std::array<float, 11204> gradLogPolicy_x = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionX, meanX, standardDevX, 0);
+            std::array<float, 11004> gradLogPolicy_x = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionX, meanX, standardDevX, 0, logSigmaXClamped);
 
 
             //gradLP_y
             float meanY = y3Mat[t][2];
-            float logSigmaY = y3Mat[t][3];
+            float logSigmaYRaw = y3Mat[t][3];
+            float logSigmaY = std::clamp(logSigmaYRaw, lowerBoundLogSigma, upperBoundLogSigma);
 
-            float standardDevY_raw = std::exp(logSigmaY);
-            float standardDevY = std::clamp(standardDevY_raw, lowerBoundExp, upperBoundExp);
+            if(logSigmaY == lowerBoundLogSigma || logSigmaY == upperBoundLogSigma) logSigmaYClamped = true;
+            else logSigmaYClamped = false;
+
+            float standardDevY = std::exp(logSigmaY);
 
             float actionY = actionsMat[t][1];
             
-            std::array<float, 11204> gradLogPolicy_y = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionY, meanY, standardDevY, 2);
+            std::array<float, 11004> gradLogPolicy_y = gradLogPolicy_i(w2, w3, y1Mat.at(t), y2Mat.at(t), a1Mat.at(t), a2Mat.at(t), stateVectorMat.at(t), actionY, meanY, standardDevY, 2, logSigmaYClamped);
 
             //assemble full gradient term 
-            std::array<float, 11204> gradTerm = gradientTerm(gradLogPolicy_x, gradLogPolicy_y, returnT, alpha, gamma, t, clippingVal);
+            std::array<float, 11004> gradTerm = gradientTerm(gradLogPolicy_x, gradLogPolicy_y, returnT, alpha, gamma, t, clippingVal);
 
             //accumalte gradientTerm 
-            for(int i = 0; i < 11204; i++){
+            for(int i = 0; i < 11004; i++){
                 isNan = std::isnan(gradTerm[i]);
                 if(isNan){
                     std::cout << "gradTerm[" << i << "] = " << gradTerm[i] << " at time step " << t << std::endl;
                     break;
                 }
+
                 accumlatedGradTerm[i] += gradTerm[i];
                 if(accumlatedGradTerm[i] > 100) std::cout << accumlatedGradTerm[i] << std::endl;
             }
-        }
-        if(isNan) break;
 
+            if(isNan) break;
+        }
+
+        if(isNan) break;
         if(e % 1000 == 0 || e == numEpisodes-1)std::cout << "Total return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
 
         //******UPDATE PARAMTERS*****

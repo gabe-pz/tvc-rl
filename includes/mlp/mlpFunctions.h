@@ -4,7 +4,7 @@
 #include <random>
 
 //*****PARAMETERS INIT*****
-void initParameters(std::array<std::array<float, 6>, 100>& w1, std::array<std::array<float, 100>, 100>& w2, std::array<std::array<float, 100>, 4>& w3, std::array<float, 100>& b1, 
+void initParameters(std::array<std::array<float, 4>, 100>& w1, std::array<std::array<float, 100>, 100>& w2, std::array<std::array<float, 100>, 4>& w3, std::array<float, 100>& b1, 
         std::array<float, 100>& b2, std::array<float, 4>& b3);
 
 //*****ACTIVATION FUNCTION*****
@@ -22,7 +22,7 @@ struct mlpOutputTraining{
     std::array<float, 100> y_1, a_1, y_2, a_2;
     std::array<float, 4> y_out;
 }; 
-mlpOutputTraining mlpOutTrain(const std::array<double, 6>& stateVector, const std::array<std::array<float, 6>, 100>& w1, const std::array<std::array<float, 100>, 100>& w2, 
+mlpOutputTraining mlpOutTrain(const std::array<double, 4>& stateVector, const std::array<std::array<float, 4>, 100>& w1, const std::array<std::array<float, 100>, 100>& w2, 
         const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& b1, const std::array<float, 100>& b2, const std::array<float, 4>& b3);
 
 
