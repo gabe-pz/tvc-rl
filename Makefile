@@ -28,7 +28,7 @@ train:
 #build and run sim on mac
 sim-mac:
 	mkdir -p bin
-	$(CXX) -std=c++17 -Wall -g -I includes -I$(BREW)/includes $(SIM_SRCS) -o bin/sim -L$(BREW)/lib -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
+	$(CXX) -std=c++17 -Wall -g -I includes -I$(BREW)/include $(SIM_SRCS) -o bin/sim -L$(BREW)/lib -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 	./bin/sim
 
 #delete build files

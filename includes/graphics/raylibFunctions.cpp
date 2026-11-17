@@ -22,7 +22,7 @@ Camera3D raylibInit(int FPS, const std::array<double, 3>& startPosition){
     //******CAMERA*****
     Vector3 rocketPos = toRaylib(startPosition);
 
-    Camera3D camera = { 0 };
+    Camera3D camera = {};
 
     //sit camera a fixed offset away from rocket
     camera.position = (Vector3){rocketPos.x + 6.0f, rocketPos.y + 4.0f, rocketPos.z + 6.0f};

@@ -94,7 +94,7 @@ int main(void){
 
 
     //*****HYPERPARAMETERS****** 
-    int numEpisodes = 50000;
+    int numEpisodes = 5000;
 
     float alpha = 0.001;//step size
     float gamma = 0.99;
