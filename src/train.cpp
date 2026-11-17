@@ -96,15 +96,17 @@ int main(void){
     int numEpisodes = 50*1000;
 
     float alpha = 0.001;//step size
-    float gamma = 0.92;
-    float clippingVal = 5.5f;
+    float gamma = 0.99;
+    float clippingVal = 7.5f;
 
-    float lowerBoundLogSigma = -3.0f;
-    float upperBoundLogSigma = 0.2f;
+    float lowerBoundLogSigma = -2.0f;
+    float upperBoundLogSigma = 0.25f;
 
-    float a = 290.5f;//reward angular exp constant
-    float b = 0.5f;//reward angularV constant
-    float c = 0.0f;//termination reward
+    float a = 6.0f;//constant that scales exp term 
+    float b = 200.0f;//exp constant
+    float c = 0.5f;//angular v term constant
+    float d = -3.0f;//term reward
+    float angularThreshold = 0.25f;//angular angularThreshold for termination in rads
                 
     //*****TRAINING LOOP*****
     for(int e = 0; e < numEpisodes; e++){
@@ -178,18 +180,18 @@ int main(void){
                 //ensure only getting reward after initial action
                 if(i > 0){
                     //analyze state for reward
-                    if(std::abs(angularPosition[0]) > 0.27 || std::abs(angularPosition[1]) > 0.27){
+                    if(std::abs(angularPosition[0]) > angularThreshold || std::abs(angularPosition[1]) > angularThreshold){
 
                         //reward for case where angles greater than termination angles
-                        rewardSeq.push_back(c);
+                        rewardSeq.push_back(d);
                         epTerminated = true;
 
                         break;//terminate episode
                     }
 
                     //reward for otherwise 
-                    float expRewardTerm = std::exp(-a*(angularPosition[0]*angularPosition[0] + angularPosition[1]*angularPosition[1]));
-                    float squaredSumRewardTerm = b*(angularVelocity[0]*angularVelocity[0] + angularVelocity[1]*angularVelocity[1]);
+                    float expRewardTerm = a*std::exp(-b*(angularPosition[0]*angularPosition[0] + angularPosition[1]*angularPosition[1]));
+                    float squaredSumRewardTerm = c*(angularVelocity[0]*angularVelocity[0] + angularVelocity[1]*angularVelocity[1]);
                     float reward = expRewardTerm - squaredSumRewardTerm;
                     
                     rewardSeq.push_back(reward);
