@@ -95,16 +95,16 @@ int main(void){
     //*****HYPERPARAMETERS****** 
     int numEpisodes = 50*1000;
 
-    float alpha = 0.0005;//step size
-    float gamma = 0.99;
+    float alpha = 0.001;//step size
+    float gamma = 0.92;
     float clippingVal = 5.5f;
 
     float lowerBoundLogSigma = -3.0f;
     float upperBoundLogSigma = 0.2f;
 
-    float a = 190.5f;//reward angular exp constant
-    float b = 5.0f;//reward angularV constant
-    float c = -25.0f;//termination reward
+    float a = 290.5f;//reward angular exp constant
+    float b = 0.5f;//reward angularV constant
+    float c = 0.0f;//termination reward
                 
     //*****TRAINING LOOP*****
     for(int e = 0; e < numEpisodes; e++){
