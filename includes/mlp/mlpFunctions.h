@@ -26,3 +26,5 @@ mlpOutputTraining mlpOutTrain(const std::array<double, 4>& stateVector, const st
         const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& b1, const std::array<float, 100>& b2, const std::array<float, 4>& b3);
 
 
+std::array<float, 2> mlpOutputControl(const std::array<double, 4>& stateVector, const std::array<std::array<float, 4>, 100>& w1, const std::array<std::array<float, 100>, 100>& w2, 
+        const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& b1, const std::array<float, 100>& b2, const std::array<float, 4>& b3);

@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "../includes/mlp/mlpFunctions.h"
+#include "../includes/readWrite/rwParameters.h"
 #include "../includes/physics/rocketPhysics.h"
 #include "../includes/control/slewServos.h"
 #include "../includes/REINFORCE/gradientTerm.h"
@@ -93,7 +94,7 @@ int main(void){
 
 
     //*****HYPERPARAMETERS****** 
-    int numEpisodes = 50*1000;
+    int numEpisodes = 5000;
 
     float alpha = 0.001;//step size
     float gamma = 0.99;
@@ -102,10 +103,10 @@ int main(void){
     float lowerBoundLogSigma = -2.0f;
     float upperBoundLogSigma = 0.25f;
 
-    float a = 6.0f;//constant that scales exp term 
+    float a = 10.0f;//constant that scales exp term 
     float b = 200.0f;//exp constant
     float c = 0.5f;//angular v term constant
-    float d = -3.0f;//term reward
+    float d = -5.0f;//term reward
     float angularThreshold = 0.25f;//angular angularThreshold for termination in rads
                 
     //*****TRAINING LOOP*****
@@ -349,6 +350,9 @@ int main(void){
             std::cout << "Average flight time was: " << timeSum /(e*1.0) << "s" << std::endl;
         }
     }
+
+    writeParameters(w1, w2, w3, b1, b2, b3);
+
 
     return 0;
 }

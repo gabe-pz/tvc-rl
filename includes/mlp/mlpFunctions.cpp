@@ -111,3 +111,22 @@ mlpOutputTraining mlpOutTrain(const std::array<double, 4>& stateVector, const st
     return {y_1, a_1, y_2, a_2, y_out};
 }
 
+std::array<float, 2> mlpOutputControl(const std::array<double, 4>& stateVector, const std::array<std::array<float, 4>, 100>& w1, const std::array<std::array<float, 100>, 100>& w2, 
+        const std::array<std::array<float, 100>, 4>& w3, const std::array<float, 100>& b1, const std::array<float, 100>& b2, const std::array<float, 4>& b3){
+
+
+    //propagate through network and get output 
+    std::array<float, 100> y1 = preActivationVec(w1, stateVector, b1);
+    std::array<float, 100> a1 = activationsVec(y1);
+
+
+    std::array<float, 100> y2 = preActivationVec(w2, a1, b2);
+    std::array<float, 100> a2 = activationsVec(y2);
+
+
+    std::array<float, 4> yOut = preActivationVec(w3, a2, b3);
+
+    return {yOut[0], yOut[2]};
+
+
+}

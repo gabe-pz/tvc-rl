@@ -2,9 +2,11 @@
 #include <random>
 
 #include "../includes/graphics/raylibFunctions.h"
-#include "../includes/mlp/mlpFunctions.h"
 #include "../includes/physics/rocketPhysics.h"
+#include "../includes/readWrite/rwParameters.h"
+
 #include "../includes/control/slewServos.h"
+#include "../includes/mlp/mlpFunctions.h"
 
 int main(void){
     //*****RANDOM NUM*****
@@ -47,8 +49,9 @@ int main(void){
     std::array<double, 3> position = {0.0, 0.0, 0.0};
     std::array<double, 3> lastPosition = {0.0, 0.0, 0.0};
 
+    std::array<double, 3> angularAcceleration = {0.0, 0.0, 0.0};
     std::array<double, 3> angularVelocity = {0.0, 0.0, 0.0};
-    std::array<double, 2> psi ={0.0, 0.0};
+    std::array<double, 2> angularPosition ={0.0, 0.0};
 
 
 
@@ -77,7 +80,7 @@ int main(void){
     
     //******PARAMETERS****** 
     //weight matrices 
-    std::array<std::array<float, 6>, 100> w1;
+    std::array<std::array<float, 4>, 100> w1;
     std::array<std::array<float, 100>, 100> w2; 
     std::array<std::array<float, 100>, 4> w3; 
     
@@ -85,7 +88,7 @@ int main(void){
     std::array<float, 100> b1, b2; 
     std::array<float, 4> b3;
 
-    //load paramters(coming soon)
+    loadParameters(w1, w2, w3, b1, b2, b3);//load parameters
 
     //*****SIM***** 
     while (!WindowShouldClose()){
@@ -104,10 +107,18 @@ int main(void){
                 //******CONTROL*****
                 if(timeSinceLastControl >= controlDt){
                     timeSinceLastControl = 0.0;//reset control time
-                    
-                    actionX = 0.1; 
-                    actionY = 0;
 
+                    std::array<double, 4> stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};
+
+                    //propagate state vector through MLP
+                    std::array<float, 2> mus = mlpOutputControl(stateVector, w1, w2, w3, b1, b2, b3);
+
+                    //raw actions
+                    float rawActionX = mus[0];
+                    float rawActionY = mus[1];
+
+                    actionX = 0.087*tanh(rawActionX); 
+                    actionY = 0.087*tanh(rawActionY);
                 }
 
 
@@ -120,7 +131,7 @@ int main(void){
 
 
                 //******PHYSICS UPDATE******
-                stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularVelocity, psi);
+                stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularAcceleration, angularVelocity, angularPosition);
                 
 
 
