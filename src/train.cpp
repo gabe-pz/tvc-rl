@@ -94,20 +94,20 @@ int main(void){
 
 
     //*****HYPERPARAMETERS****** 
-    int numEpisodes = 5000;
+    int numEpisodes = 50000;
 
     float alpha = 0.001;//step size
     float gamma = 0.99;
-    float clippingVal = 7.5f;
+    float clippingVal = 5.5f;
 
     float lowerBoundLogSigma = -2.0f;
     float upperBoundLogSigma = 0.25f;
 
-    float a = 10.0f;//constant that scales exp term 
-    float b = 200.0f;//exp constant
+    float a = 7.5f;//constant that scales exp term 
+    float b = 300.0f;//exp constant
     float c = 0.5f;//angular v term constant
     float d = -5.0f;//term reward
-    float angularThreshold = 0.25f;//angular angularThreshold for termination in rads
+    float angularThreshold = 0.087f;//angular angularThreshold for termination in rads
                 
     //*****TRAINING LOOP*****
     for(int e = 0; e < numEpisodes; e++){
