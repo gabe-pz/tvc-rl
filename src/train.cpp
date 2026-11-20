@@ -9,6 +9,7 @@
 #include "../includes/readWrite/rwParameters.h"
 
 #include "../includes/physics/rocketPhysics.h"
+#include "../includes/math/rocketMath.h"
 #include "../includes/control/slewServos.h"
 #include "../includes/REINFORCE/gradientTerm.h"
 #include "../includes/helpers/reward.h"
@@ -25,7 +26,7 @@ int main(void){
     //time and ep
     const double dt = 0.0001;
     const double simTime = tBurn; 
-    const int numEpisodes = 10000;
+    const int numEpisodes = 100000;
 
     //control
     const double controlDt = 0.05; 
@@ -98,12 +99,22 @@ int main(void){
     //*****TRACKING VARIABLES***** 
     //time
     double t = 0.0;
-    double timeSum = 0.0;
-    double timeSinceLastControl = controlDt;//such that start loop with control 
+    double tSum = 0.0;
+                                            
     int timeSteps = 0; 
+    int timeStepSum = 0;
+
+    double timeSinceLastControl = controlDt;//such that start loop with control 
+    
+    //angles and its derivatives
+    double angularPosXFlightSum = 0.0;
+    double angularPosXEpBatchSum = 0.0;
+
+    double angularPosYFlightSum = 0.0; 
+    double angularPosYEpBatchSum = 0.0;
 
     //return 
-    float returnT = 0.0f;
+    float totalReturnDiscountedSum = 0.0f;
 
     //episode state
     bool epTerminated = false;
@@ -121,14 +132,14 @@ int main(void){
 
     //******REWARD FUNCTION CONSTANTS*****
     //reward_t constants
-    float a = 5.0f;//constant that scales exp term 
-    float b = 200.0f;//exp constant
-    float c = 0.75f;//angular v term constant
-    float d = -1.0f;//term reward
+    float a = 2.0f;//constant that scales exp term 
+    float b = 300.0f;//exp constant
+    float c = 0.5f;//angular v term constant
+    float d = 0.0f;//term reward
                     
     //thresholds 
-    double angularThX = 0.2;
-    double angularThY = 0.2;
+    double angularThX = 0.25;
+    double angularThY = 0.25;
 
 
 
@@ -158,6 +169,9 @@ int main(void){
         timeSinceLastControl = controlDt; 
         timeSteps = 0;
         epTerminated = false;
+
+        angularPosXFlightSum = 0.0;
+        angularPosYFlightSum = 0.0;
 
         //******RESET VECTORS*******
         stateVector = {0.0, 0.0, 0.0, 0.0};
@@ -198,7 +212,11 @@ int main(void){
                 timeSinceLastControl = 0.0;
 
 
+                //*****STATE*****
+                stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};//create state 
+                stateVectorMat.push_back(stateVector);//store state
 
+            
                 //*****REWARD*****
                 //ensure only getting reward after initial action
                 if(i > 0){
@@ -212,14 +230,6 @@ int main(void){
                         break;
                     }
                 }
-
-
-
-                //*****STATE*****
-                stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};//create state 
-                stateVectorMat.push_back(stateVector);//store state
-
-
 
                 //*****MLP PROPAGATION*****
                 mlpOutputTraining mlpOut = mlpOutTrain(stateVector, w1, w2, w3, b1, b2, b3);//get output
@@ -236,7 +246,7 @@ int main(void){
                 float meanX = mlpOut.y_out[0];
                 float logSigmaXRaw = mlpOut.y_out[1];
                 float logSigmaX = std::clamp(logSigmaXRaw, lowerBoundLogSigma, upperBoundLogSigma);
-                
+
                 //y outputs
                 float meanY = mlpOut.y_out[2];
                 float logSigmaYRaw = mlpOut.y_out[3];
@@ -267,9 +277,12 @@ int main(void){
 
                 //******INCREMENT*******
                 timeSteps++;
-            }
-           
 
+                //logging
+                angularPosXFlightSum += angularPosition[0];
+                angularPosYFlightSum += angularPosition[1];
+            }
+            
             //*****UPDATE IN ENV*****
             //slew the servos to ensure only moving within physical limits
             slewServo(currentServoX, actionX, dt);//x slew
@@ -279,14 +292,20 @@ int main(void){
             //physics update
             stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularAccleration, angularVelocity, angularPosition);
         }
-
-        //******ADD FLIGHT TIME TO SUM******
-        timeSum += t;
-
+        
+        //******LOG FOR STATS******
+        //time
+        tSum += t;
+        timeStepSum += timeSteps;
+        
+        //angles
+        angularPosXEpBatchSum += (angularPosXFlightSum/timeSteps);
+        angularPosYEpBatchSum += (angularPosYFlightSum/timeSteps);
 
         //******LOG FINAL REWARD IF EP. DID NOT END IN TERMINATION
         if(!epTerminated){
             //reward for otherwise 
+            stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};//create state 
             std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, angularThX, angularThY);
             rewardSeq.push_back(rewardVec[0]);//log it
         }
@@ -296,7 +315,7 @@ int main(void){
         //vector that accumalted grad_t for each term in it, for whole loop in update rule
         std::array<float, 11004> accumlatedGrad = {0};
 
-        //total discounted reward from t_0
+        //return
         float totalEpisodeReturn = 0.0f;
     
         //clamp checks
@@ -310,15 +329,19 @@ int main(void){
         //******REINFORCE UPDATE LOOP FOR EPISODE*******
         for(int t = 0; t < timeSteps; t++){
 
-            //*****RETURN_t*****
-            returnT = 0.0f;
+            //*****RETURN_t***** 
+            float return_t = 0.0f;
 
             //compute return at step t 
             for(int k = t; k < timeSteps; k++){
-                returnT += std::pow(gamma, k-t)*rewardSeq.at(k);
+                return_t += std::pow(gamma, k-t)*rewardSeq.at(k);
 
             }
-            if(t == 0) totalEpisodeReturn = returnT;//log the total discounted return from t_0
+            //log total dicounted return from t_0
+            if(t == 0){
+                totalEpisodeReturn = return_t;
+                totalReturnDiscountedSum += totalEpisodeReturn;
+            }
 
             //****GRADIENT TERM*****
             //gradLP_x
@@ -347,7 +370,7 @@ int main(void){
    
 
             //*****ASSEMBLE GRADIENT TERM AT t*****
-            std::array<float, 11004> gradTerm_t = gradientTerm_t(gradLogPolicy_x, gradLogPolicy_y, returnT, t);
+            std::array<float, 11004> gradTerm_t = gradientTerm_t(gradLogPolicy_x, gradLogPolicy_y, return_t, t);
 
 
             //******ACCUMLATE GRAD TERM AT t******
@@ -374,9 +397,21 @@ int main(void){
         
         //*****END OF EPISODE BATCH LOG******
         if((e % 1000 == 0 && e > 0) || e == numEpisodes-1){
-            std::cout << "************************************************************" << std::endl;
-            std::cout << "Total discounted return for episode " << e << " was G = " << totalEpisodeReturn << std::endl;
-            std::cout << "Average flight time was: " << timeSum /(e*1.0) << "s" << std::endl;
+           
+            std::cout << "**********STATISTICS FOR EPISODE " << e << "**********" << std::endl;
+            std::cout << "AVERAGE TOTAL DISCOTUNED RETURN: " << totalReturnDiscountedSum/1000.0 << std::endl;
+            std::cout << "AVERAGE NUMBER OF TIME STEPS: " << timeStepSum/1000 << std::endl;
+            std::cout << "AVERAGE FLIGHT TIME: " << tSum/1000.0 << std::endl;
+            std::cout << "TYPICAL X ANGULAR POSITION(degs): " << rad2deg(angularPosXEpBatchSum)/1000.0 << std::endl;
+            std::cout << "TYPICAL Y ANGULAR POSITION(degs): " << rad2deg(angularPosYEpBatchSum)/1000.0 << std::endl;
+            std::cout << "\n" << std::endl;
+
+            totalReturnDiscountedSum = 0.0f;
+            timeStepSum = 0;
+            tSum = 0.0;
+
+            angularPosXEpBatchSum = 0.0;
+            angularPosYEpBatchSum = 0.0;
         }
     }
     
