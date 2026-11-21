@@ -6,15 +6,13 @@
 
 #include "../includes/mlp/mlpFunctions.h"
 #include "../includes/REINFORCE/gradientTerm.h"
-
-#include "../includes/readWrite/rwParameters.h"
-#include "../includes/readWrite/dataLog.h"
+#include "../includes/control/slewServos.h"
 
 #include "../includes/physics/rocketPhysics.h"
-#include "../includes/math/rocketMath.h"
 
-#include "../includes/control/slewServos.h"
+#include "../includes/readWrite/rwParameters.h"
 #include "../includes/helpers/reward.h"
+#include "../includes/helpers/logStats.h"
 
 int main(void){
 
@@ -28,7 +26,7 @@ int main(void){
     //time and ep
     const double dt = 0.0001;
     const double simTime = tBurn; 
-    const int numEpisodes = 100000;
+    const int numEpisodes = 50000;
     const int epBatchAmount = 1000;
 
     //control
@@ -79,7 +77,6 @@ int main(void){
 
     std::vector<std::array<float, 100>> a1Mat;
     std::vector<std::array<float, 100>> a2Mat;
-    std::vector<std::array<float, 4>> a3Mat;
 
     //dynamic matrices for storing state and action vectors
     std::vector<std::array<double, 4>> stateVectorMat;
@@ -98,28 +95,12 @@ int main(void){
     int timeStepSum = 0;
 
     double timeSinceLastControl = controlDt;//such that start loop with control 
-    
-    //angles and its derivatives
-    double angularPosXFlightSum = 0.0;
-    double angularPosXEpBatchSum = 0.0;
-
-    double angularPosYFlightSum = 0.0; 
-    double angularPosYEpBatchSum = 0.0;
-
-    //log sigmas
-    float logSigmaXSum = 0.0f;
-    float logSigmaXEpBatchSum = 0.0f;
-
-    float logSigmaYSum = 0.0f;
-    float logSigmaYEpBatchSum = 0.0f;
 
     //return 
     float totalReturnSum = 0.0f;
 
     //episode state
-    bool epTerminated = false;
-
-    
+    bool epTerminated = false; 
 
     //******HYPERPARAMETERS******
     float alpha = 0.001;
@@ -175,17 +156,10 @@ int main(void){
         //******RESET TRACKING VARIABLES*******
         //time and state
         t = 0.0; 
-        timeSinceLastControl = controlDt; 
         timeSteps = 0;
+        timeSinceLastControl = controlDt; 
         epTerminated = false;
         
-        //angles
-        angularPosXFlightSum = 0.0;
-        angularPosYFlightSum = 0.0;
-        
-        //log sigmas
-        logSigmaXSum = 0.0f;
-        logSigmaYSum = 0.0f;
 
         //******RESET VECTORS*******
         stateVector = {0.0, 0.0, 0.0, 0.0};
@@ -208,7 +182,6 @@ int main(void){
 
         a1Mat.clear();
         a2Mat.clear();
-        a3Mat.clear();
 
         stateVectorMat.clear();
         actionsMat.clear();
@@ -265,7 +238,8 @@ int main(void){
                 float meanY = mlpOut.y_out[2];
                 float logSigmaYRaw = mlpOut.y_out[3];
                 float logSigmaY = std::clamp(logSigmaYRaw, lowerBoundLogSigma, upperBoundLogSigma);
-
+                
+                //store outputs
                 y3Mat.push_back({meanX, logSigmaX, meanY, logSigmaY});
 
 
@@ -290,14 +264,7 @@ int main(void){
 
 
                 //******INCREMENT*******
-                timeSteps++;
-
-                //logging
-                angularPosXFlightSum += angularPosition[0];
-                angularPosYFlightSum += angularPosition[1];
-
-                logSigmaXSum += logSigmaX;
-                logSigmaYSum += logSigmaY;
+                timeSteps++; 
             }
             
             //*****UPDATE IN ENV*****
@@ -308,22 +275,15 @@ int main(void){
 
             //physics update
             stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularAccleration, angularVelocity, angularPosition);
-        }
-        
+
+        } 
         //******LOG FOR STATS******
         //time
         tSum += t;
         timeStepSum += timeSteps;
         
-        //angles
-        angularPosXEpBatchSum += (angularPosXFlightSum/timeSteps);
-        angularPosYEpBatchSum += (angularPosYFlightSum/timeSteps);
-        
-        //log sigmas 
-        logSigmaXEpBatchSum += (logSigmaXSum/timeSteps);
-        logSigmaYEpBatchSum += (logSigmaYSum/timeSteps);
 
-        //******LOG FINAL REWARD IF EP. DID NOT END IN TERMINATION
+        //******LOG FINAL REWARD IF EP. DID NOT END IN TERMINATION*****
         if(!epTerminated){
             //reward for otherwise 
             stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};//create state 
@@ -417,36 +377,14 @@ int main(void){
 
         
         //*****END OF EPISODE BATCH LOG******
-        if((e % epBatchAmount == 0 && e > 0) || e == numEpisodes-1){ 
-            //prints
-            std::cout << "**********STATISTICS FOR EPISODE " << e << "**********" << std::endl;
-            std::cout << "AVERAGE TOTAL DISCOTUNED RETURN: " << totalReturnSum/(epBatchAmount*1.0) << std::endl;
-            std::cout << "AVERAGE NUMBER OF TIME STEPS: " << timeStepSum/epBatchAmount<< std::endl;
-            std::cout << "AVERAGE FLIGHT TIME: " << tSum/(epBatchAmount*1.0) << std::endl;
-            std::cout << "TYPICAL X ANGULAR POSITION: " << rad2deg(angularPosXEpBatchSum)/(epBatchAmount*1.0)<< "(degs)" << std::endl;
-            std::cout << "TYPICAL Y ANGULAR POSITION: " << rad2deg(angularPosYEpBatchSum)/(epBatchAmount*1.0) << "(degs)" << std::endl;
-            std::cout << "TYPICAL LOG_SIGMA_X: " << logSigmaXEpBatchSum/(epBatchAmount*1.0) <<  std::endl;
-            std::cout << "TYPICAL LOG_SIGMA_Y: " <<  logSigmaYEpBatchSum/(epBatchAmount*1.0) << std::endl;
-            std::cout << "\n" << std::endl;
-            
-            //log to csv
-            returnToCsv(epBatchAmount, e, totalReturnSum/(epBatchAmount*1.0));
-
-            //resets
-            totalReturnSum = 0.0f;
-            timeStepSum = 0;
-            tSum = 0.0;
-            angularPosXEpBatchSum = 0.0;
-            angularPosYEpBatchSum = 0.0;
-            logSigmaXEpBatchSum = 0.0f;
-            logSigmaYEpBatchSum = 0.0f;
+        if((e % epBatchAmount == 0 && e > 0) || e == numEpisodes-1){  
+            logStats(e, epBatchAmount, timeStepSum, totalReturnSum, tSum, stateVectorMat, y3Mat);
         }
+
     }
     
 
     //*****WRITE PARAMETER BYTES TO .bin******
     writeParameters(w1, w2, w3, b1, b2, b3);
 
-
-    return 0;
 }
