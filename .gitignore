@@ -1,6 +1,8 @@
 bin/
 parameters.bin
 
+logData/.venv/
+data/returnData.csv
 
 .DS_Store
 *.o

@@ -5,13 +5,15 @@
 #include <iostream>
 
 #include "../includes/mlp/mlpFunctions.h"
+#include "../includes/REINFORCE/gradientTerm.h"
 
 #include "../includes/readWrite/rwParameters.h"
+#include "../includes/readWrite/dataLog.h"
 
 #include "../includes/physics/rocketPhysics.h"
 #include "../includes/math/rocketMath.h"
+
 #include "../includes/control/slewServos.h"
-#include "../includes/REINFORCE/gradientTerm.h"
 #include "../includes/helpers/reward.h"
 
 int main(void){
@@ -26,7 +28,8 @@ int main(void){
     //time and ep
     const double dt = 0.0001;
     const double simTime = tBurn; 
-    const int numEpisodes = 100000;
+    const int numEpisodes = 15000;
+    const int epBatchAmount = 1000;
 
     //control
     const double controlDt = 0.05; 
@@ -113,8 +116,15 @@ int main(void){
     double angularPosYFlightSum = 0.0; 
     double angularPosYEpBatchSum = 0.0;
 
+    //log sigmas
+    float logSigmaXSum = 0.0f;
+    float logSigmaXEpBatchSum = 0.0f;
+
+    float logSigmaYSum = 0.0f;
+    float logSigmaYEpBatchSum = 0.0f;
+
     //return 
-    float totalReturnDiscountedSum = 0.0f;
+    float totalReturnSum = 0.0f;
 
     //episode state
     bool epTerminated = false;
@@ -123,19 +133,20 @@ int main(void){
 
     //******HYPERPARAMETERS******
     float alpha = 0.001;
-    float gamma = 0.99;
-    float gradientClipValue = 5.5f;
-    float lowerBoundLogSigma = -4.0f;
-    float upperBoundLogSigma = -1.0f;
+    float gamma = 1.0;
+    float gradientClipValue = 5.0f;
+    float lowerBoundLogSigma = -5.0f;
+    float upperBoundLogSigma = 1.0f;
 
 
 
     //******REWARD FUNCTION CONSTANTS*****
     //reward_t constants
-    float a = 2.0f;//constant that scales exp term 
-    float b = 300.0f;//exp constant
-    float c = 0.5f;//angular v term constant
-    float d = 0.0f;//term reward
+    float a = 2.0f;//constant scaling exp term
+    float b = 865.0f;//constant in exp
+    float c = 8.7f;//constant for quadtratic angularPos term
+    float d = 865.0f;//constant for quadtratic angularB term
+    float f = 0.0;//termination reward
                     
     //thresholds 
     double angularThX = 0.25;
@@ -165,13 +176,19 @@ int main(void){
         
 
         //******RESET TRACKING VARIABLES*******
+        //time and state
         t = 0.0; 
         timeSinceLastControl = controlDt; 
         timeSteps = 0;
         epTerminated = false;
-
+        
+        //angles
         angularPosXFlightSum = 0.0;
         angularPosYFlightSum = 0.0;
+        
+        //log sigmas
+        logSigmaXSum = 0.0f;
+        logSigmaYSum = 0.0f;
 
         //******RESET VECTORS*******
         stateVector = {0.0, 0.0, 0.0, 0.0};
@@ -220,7 +237,7 @@ int main(void){
                 //*****REWARD*****
                 //ensure only getting reward after initial action
                 if(i > 0){
-                    std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, angularThX, angularThY);//get reward and state of ep term
+                    std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, f, angularThX, angularThY);//get reward and state of ep term
 
                     rewardSeq.push_back(rewardVec[0]);//log reward 
 
@@ -281,6 +298,9 @@ int main(void){
                 //logging
                 angularPosXFlightSum += angularPosition[0];
                 angularPosYFlightSum += angularPosition[1];
+
+                logSigmaXSum += logSigmaX;
+                logSigmaYSum += logSigmaY;
             }
             
             //*****UPDATE IN ENV*****
@@ -301,12 +321,16 @@ int main(void){
         //angles
         angularPosXEpBatchSum += (angularPosXFlightSum/timeSteps);
         angularPosYEpBatchSum += (angularPosYFlightSum/timeSteps);
+        
+        //log sigmas 
+        logSigmaXEpBatchSum += (logSigmaXSum/timeSteps);
+        logSigmaYEpBatchSum += (logSigmaYSum/timeSteps);
 
         //******LOG FINAL REWARD IF EP. DID NOT END IN TERMINATION
         if(!epTerminated){
             //reward for otherwise 
             stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};//create state 
-            std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, angularThX, angularThY);
+            std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, f, angularThX, angularThY);
             rewardSeq.push_back(rewardVec[0]);//log it
         }
 
@@ -340,7 +364,7 @@ int main(void){
             //log total dicounted return from t_0
             if(t == 0){
                 totalEpisodeReturn = return_t;
-                totalReturnDiscountedSum += totalEpisodeReturn;
+                totalReturnSum += totalEpisodeReturn;
             }
 
             //****GRADIENT TERM*****
@@ -396,22 +420,29 @@ int main(void){
 
         
         //*****END OF EPISODE BATCH LOG******
-        if((e % 1000 == 0 && e > 0) || e == numEpisodes-1){
-           
+        if((e % epBatchAmount == 0 && e > 0) || e == numEpisodes-1){ 
+            //prints
             std::cout << "**********STATISTICS FOR EPISODE " << e << "**********" << std::endl;
-            std::cout << "AVERAGE TOTAL DISCOTUNED RETURN: " << totalReturnDiscountedSum/1000.0 << std::endl;
-            std::cout << "AVERAGE NUMBER OF TIME STEPS: " << timeStepSum/1000 << std::endl;
-            std::cout << "AVERAGE FLIGHT TIME: " << tSum/1000.0 << std::endl;
-            std::cout << "TYPICAL X ANGULAR POSITION(degs): " << rad2deg(angularPosXEpBatchSum)/1000.0 << std::endl;
-            std::cout << "TYPICAL Y ANGULAR POSITION(degs): " << rad2deg(angularPosYEpBatchSum)/1000.0 << std::endl;
+            std::cout << "AVERAGE TOTAL DISCOTUNED RETURN: " << totalReturnSum/(epBatchAmount*1.0) << std::endl;
+            std::cout << "AVERAGE NUMBER OF TIME STEPS: " << timeStepSum/epBatchAmount<< std::endl;
+            std::cout << "AVERAGE FLIGHT TIME: " << tSum/(epBatchAmount*1.0) << std::endl;
+            std::cout << "TYPICAL X ANGULAR POSITION: " << rad2deg(angularPosXEpBatchSum)/(epBatchAmount*1.0)<< "(degs)" << std::endl;
+            std::cout << "TYPICAL Y ANGULAR POSITION: " << rad2deg(angularPosYEpBatchSum)/(epBatchAmount*1.0) << "(degs)" << std::endl;
+            std::cout << "TYPICAL LOG_SIGMA_X: " << logSigmaXEpBatchSum/(epBatchAmount*1.0) <<  std::endl;
+            std::cout << "TYPICAL LOG_SIGMA_Y: " <<  logSigmaYEpBatchSum/(epBatchAmount*1.0) << std::endl;
             std::cout << "\n" << std::endl;
+            
+            //log to csv
+            returnToCsv(epBatchAmount, e, totalReturnSum/(epBatchAmount*1.0));
 
-            totalReturnDiscountedSum = 0.0f;
+            //resets
+            totalReturnSum = 0.0f;
             timeStepSum = 0;
             tSum = 0.0;
-
             angularPosXEpBatchSum = 0.0;
             angularPosYEpBatchSum = 0.0;
+            logSigmaXEpBatchSum = 0.0f;
+            logSigmaYEpBatchSum = 0.0f;
         }
     }
     
