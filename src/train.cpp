@@ -28,7 +28,7 @@ int main(void){
     //time and ep
     const double dt = 0.0001;
     const double simTime = tBurn; 
-    const int numEpisodes = 15000;
+    const int numEpisodes = 100000;
     const int epBatchAmount = 1000;
 
     //control
@@ -55,16 +55,6 @@ int main(void){
     //servos init 
     float currentServoX = 0.0f;
     float currentServoY = 0.0f;
-
-    //gimbal offset
-    std::uniform_real_distribution<float> distX(-0.034f, 0.034f);//some misalignment between -2 and 2 degs                                                              
-    std::uniform_real_distribution<float> distY(-0.034f, 0.034f);
-    
-    //set the gimbal offsets
-    float servosXOffset = distX(gen);//misalignment x
-    float servosYOffset = distY(gen);//misalignment y
-
-
 
     //******PARAMETERS****** 
     //weight matrices 
@@ -173,7 +163,14 @@ int main(void){
 
         std::vector<double> pinkU = generatePinkNoise(n, episodeSeed); std::vector<double> pinkV = generatePinkNoise(n, episodeSeed+1); std::vector<double> pinkW = generatePinkNoise(n, episodeSeed+2);
         std::array<std::vector<double>, 3> pinkNoise = {pinkU, pinkV, pinkW};
+                
+        //******GIMBAL OFFSET******
+        std::uniform_real_distribution<float> distX(-0.034f, 0.034f);//some misalignment between -2 and 2 degs                                                              
+        std::uniform_real_distribution<float> distY(-0.034f, 0.034f);
         
+        //set the gimbal offsets
+        float servosXOffset = distX(gen);//misalignment x
+        float servosYOffset = distY(gen);//misalignment y
 
         //******RESET TRACKING VARIABLES*******
         //time and state

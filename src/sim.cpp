@@ -30,7 +30,7 @@ int main(void){
 
     //*****WIND SETTINGS*****
     //wind generation constants
-    unsigned int seed = 12345;
+    unsigned int seed = rd();
     int n = (int)(simTime*GEN_FREQ) + 2;
     double U = 5.0;//average wind velocity
     double intensity = 0.20;//turbulence intensity 
@@ -64,7 +64,7 @@ int main(void){
 
     //*****SERVOS***** 
     //set servos offset
-    std::uniform_real_distribution<float> dist(0.017f, 0.034f);//misalignment between 1 and 2 deg
+    std::uniform_real_distribution<float> dist(-0.034f, 0.034f);//misalignment between -2 and 2 deg
     float servosXOffset = dist(gen);
     float servosYOffset = dist(gen);
 
