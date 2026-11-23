@@ -11,7 +11,7 @@ void logStats(int currentEpisode, int epBatchAmount, int& timeStepSum, float& to
     //average angularPosition 
     double angularPositionXSum = 0.0;
     double angularPositionYSum = 0.0;
-    for(int i = 0; i < stateVecMat.size(); i++){
+    for(int i = 0; i < (int)stateVecMat.size(); i++){
         angularPositionXSum += stateVecMat[i][0];
         angularPositionYSum += stateVecMat[i][1];
     }
@@ -21,7 +21,7 @@ void logStats(int currentEpisode, int epBatchAmount, int& timeStepSum, float& to
     //average logSigmas
     float logSigmaXSum = 0.0f;
     float logSigmaYSum = 0.0f;
-    for(int i = 0; i < y3Mat.size(); i++){
+    for(int i = 0; i < (int)y3Mat.size(); i++){
         logSigmaXSum += y3Mat[i][1];
         logSigmaYSum += y3Mat[i][3];
     }

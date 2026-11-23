@@ -3,7 +3,7 @@
 
 
 
-std::array<float, 2> reward(const std::array<double, 4>& stateVector, float a, float b, float c, float d, float f, double angularThX, double angularThY){
+std::array<float, 2> reward(const std::array<double, 4>& stateVector, float a, float b, float c, float d, float rTerm, double angularThX, double angularThY){
 
     double angularPositionX = stateVector[0];
     double angularPositionY = stateVector[1]; 
@@ -13,7 +13,7 @@ std::array<float, 2> reward(const std::array<double, 4>& stateVector, float a, f
 
     //******CHECK TERMINATION CASE******
     if(std::abs(angularPositionX) > angularThX || std::abs(angularPositionY) > angularThY){
-        return {f, 1.0f};
+        return {rTerm, 1.0f};
     }
 
     //*****REWARD FOR OTHERWISE*****

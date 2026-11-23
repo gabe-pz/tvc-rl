@@ -114,11 +114,11 @@ int main(void){
     //******REWARD FUNCTION CONSTANTS*****
     //reward_t constants
     float a = 2.0f;//constant scaling exp term
-    float b = 865.0f;//constant in exp
-    float c = 8.7f;//constant for quadtratic angularPos term
-    float d = 865.0f;//constant for quadtratic angularB term
-    float f = 0.0;//termination reward
-                    
+    float b = 865.0f;//constant in exp term for r1
+    float c = 8.7f;//constant for scaling quadtratic angularPos term
+    float d = 865.0f;//constant in exp term, for scaling angularV term 
+    float rTerm = 0.0f;//reward for termination condition 
+    
     //thresholds 
     double angularThX = 0.25;
     double angularThY = 0.25;
@@ -207,7 +207,7 @@ int main(void){
                 //*****REWARD*****
                 //ensure only getting reward after initial action
                 if(i > 0){
-                    std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, f, angularThX, angularThY);//get reward and state of ep term
+                    std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, rTerm, angularThX, angularThY);//get reward and state of ep term
 
                     rewardSeq.push_back(rewardVec[0]);//log reward 
 
@@ -287,7 +287,7 @@ int main(void){
         if(!epTerminated){
             //reward for otherwise 
             stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};//create state 
-            std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, f, angularThX, angularThY);
+            std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, rTerm, angularThX, angularThY);
             rewardSeq.push_back(rewardVec[0]);//log it
         }
 
