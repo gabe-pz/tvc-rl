@@ -3,13 +3,14 @@
 
 
 
-std::array<float, 2> reward(const std::array<double, 4>& stateVector, float a, float b, float c, float d, float rTerm, double angularThX, double angularThY){
+std::array<float, 2> reward(const std::array<double, 3>& angularVelocity, const std::array<double, 2>& angularPosition, float a, float b, float c, float d, 
+        float rTerm, double angularThX, double angularThY){
 
-    double angularPositionX = stateVector[0];
-    double angularPositionY = stateVector[1]; 
+    double angularPositionX = angularPosition[0];
+    double angularPositionY = angularPosition[1]; 
 
-    double angularVelocityX = stateVector[2];
-    double angularVelocityY = stateVector[3];
+    double angularVelocityX = angularVelocity[0];
+    double angularVelocityY = angularVelocity[1];
 
     //******CHECK TERMINATION CASE******
     if(std::abs(angularPositionX) > angularThX || std::abs(angularPositionY) > angularThY){

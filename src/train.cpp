@@ -10,6 +10,7 @@
 
 #include "../includes/physics/rocketPhysics.h"
 
+#include "../includes/math/rocketMath.h"
 #include "../includes/readWrite/rwParameters.h"
 #include "../includes/helpers/reward.h"
 #include "../includes/helpers/logStats.h"
@@ -19,7 +20,6 @@ int main(void){
     //*****RANDOM NUM*****
     std::random_device rd;//random unsigned int 
     std::mt19937 gen(rd());//mersenne twister generator, which gives psudo-random number when call gen
-
 
 
     //*****SIMULATION SETTINGS*****
@@ -33,15 +33,17 @@ int main(void){
     const double controlDt = 0.05; 
 
 
+    std::normal_distribution<double> gaussianDist(0, deg2rad(0.005)/std::sqrt(dt)); 
+
 
     //*******STATE ARRAY INITALIZATIONS***** 
     std::array<double, 4> stateVector;
 
-    std::array<double, 4> stateQ;
+    std::array<double, 4> stateQ, stateQMeasure;
 
-    std::array<double, 3> velocity, position, angularVelocity, angularAccleration;
+    std::array<double, 3> velocity, position, angularVelocity, angularVelocityMeasure, angularAccleration;
 
-    std::array<double, 2> angularPosition;
+    std::array<double, 2> angularPosition, angularPositionMeasure;
 
 
 
@@ -163,14 +165,21 @@ int main(void){
 
         //******RESET VECTORS*******
         stateVector = {0.0, 0.0, 0.0, 0.0};
+
         stateQ = {1.0, 0.0, 0.0, 0.0};
+        stateQMeasure = {1.0, 0.0, 0.0, 0.0};
 
         velocity = {0.0, 0.0, 0.0};
         position = {0.0, 0.0, 0.0}; 
+
         angularAccleration = {0.0, 0.0, 0.0};
+
         angularVelocity = {0.0, 0.0, 0.0};
-        angularPosition = {0.0, 0.0};
-        
+        angularVelocityMeasure = {0.0, 0.0, 0.0};
+
+        angularPosition = {0.0, 0.0};  
+        angularPositionMeasure = {0.0, 0.0};
+
         //******RESET SERVOS******
         currentServoX = 0.0f;
         currentServoY = 0.0f;
@@ -200,14 +209,14 @@ int main(void){
 
 
                 //*****STATE*****
-                stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};//create state 
+                stateVector = {angularPositionMeasure[0], angularPositionMeasure[1], angularVelocityMeasure[0], angularVelocityMeasure[1]};//create state 
                 stateVectorMat.push_back(stateVector);//store state
 
             
                 //*****REWARD*****
                 //ensure only getting reward after initial action
                 if(i > 0){
-                    std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, rTerm, angularThX, angularThY);//get reward and state of ep term
+                    std::array<float, 2> rewardVec = reward(angularVelocity, angularPosition, a, b, c, d, rTerm, angularThX, angularThY);//get reward and state of ep term
 
                     rewardSeq.push_back(rewardVec[0]);//log reward 
 
@@ -274,9 +283,11 @@ int main(void){
            
 
             //physics update
-            stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularAccleration, angularVelocity, angularPosition);
+            stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, stateQMeasure, 
+                    angularAccleration, angularVelocity, angularPosition, angularVelocityMeasure, angularPositionMeasure, gen);
 
         } 
+
         //******LOG FOR STATS******
         //time
         tSum += t;
@@ -285,9 +296,7 @@ int main(void){
 
         //******LOG FINAL REWARD IF EP. DID NOT END IN TERMINATION*****
         if(!epTerminated){
-            //reward for otherwise 
-            stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};//create state 
-            std::array<float, 2> rewardVec = reward(stateVector, a, b, c, d, rTerm, angularThX, angularThY);
+            std::array<float, 2> rewardVec = reward(angularVelocity, angularPosition, a, b, c, d, rTerm, angularThX, angularThY);
             rewardSeq.push_back(rewardVec[0]);//log it
         }
 
