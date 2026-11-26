@@ -3,6 +3,7 @@
 
 void logStats(int currentEpisode, int epBatchAmount, int& timeStepSum, float& totalReturnSum, double& timeSum, const std::vector<std::array<double, 4>>& stateVecMat, 
         const std::vector<std::array<float, 4>>& y3Mat){
+
     double averageFlightTime = timeSum / (epBatchAmount*1.0);
     float averageReturn = totalReturnSum / (epBatchAmount*1.0f);
     int averageTimeStep = timeStepSum / epBatchAmount; 
@@ -37,17 +38,10 @@ void logStats(int currentEpisode, int epBatchAmount, int& timeStepSum, float& to
     std::cout << "LOG_SIGMA_Y: " << averageLogSigmaY << std::endl;
     std::cout << "ANGULAR_POS_X: " << rad2deg(averageAngularPositionX) << "(degs)" << std::endl;
     std::cout << "ANGULAR_POS_Y: " << rad2deg(averageAngularPositionY) << "(degs)" << std::endl;
-    std::cout << "\n" << std::endl;
-    
-    //log to csv
-    returnToCsv(epBatchAmount, currentEpisode, averageReturn);
+    std::cout << "\n" << std::endl;    
 
     //reset
     totalReturnSum = 0.0f;
     timeStepSum = 0;
     timeSum = 0.0;
 }
-
-
-
-

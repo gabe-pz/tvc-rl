@@ -44,6 +44,7 @@ int main(void){
 
     //*******STATE ARRAY INITALIZATIONS*****
     std::array<double, 4> stateQ = {1.0, 0.0, 0.0, 0.0};
+    std::array<double, 4> stateQMeasure = {1.0, 0.0, 0.0, 0.0};
 
     std::array<double, 3> velocity = {0.0, 0.0, 0.0};
     std::array<double, 3> position = {0.0, 0.0, 0.0};
@@ -53,6 +54,8 @@ int main(void){
     std::array<double, 3> angularVelocity = {0.0, 0.0, 0.0};
     std::array<double, 2> angularPosition ={0.0, 0.0};
 
+    std::array<double, 3> angularVelocityMeasure = {0.0, 0.0, 0.0};
+    std::array<double, 2> angularPositionMeasure = {0.0, 0.0};
 
 
     //*****RAYLIB INITALIZATION*****
@@ -108,14 +111,14 @@ int main(void){
                 if(timeSinceLastControl >= controlDt){
                     timeSinceLastControl = 0.0;//reset control time
 
-                    std::array<double, 4> stateVector = {angularPosition[0], angularPosition[1], angularVelocity[0], angularVelocity[1]};
+                    std::array<double, 4> stateVector = {angularPositionMeasure[0], angularPositionMeasure[1], angularVelocityMeasure[0], angularVelocityMeasure[1]};
 
                     //propagate state vector through MLP
-                    std::array<float, 2> mus = mlpOutputControl(stateVector, w1, w2, w3, b1, b2, b3);
+                    std::array<float, 2> MUs = mlpOutputControl(stateVector, w1, w2, w3, b1, b2, b3);
 
                     //raw actions
-                    float rawActionX = mus[0];
-                    float rawActionY = mus[1];
+                    float rawActionX = MUs[0];
+                    float rawActionY = MUs[1];
 
                     actionX = 0.087*tanh(rawActionX); 
                     actionY = 0.087*tanh(rawActionY);
@@ -130,8 +133,9 @@ int main(void){
                
 
 
-                //******PHYSICS UPDATE******
-                stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, angularAcceleration, angularVelocity, angularPosition);
+                //******PHYSICS UPDATE******    
+                stateUpdate(dt, t, U, sigmaU, currentServoX, currentServoY, servosXOffset, servosYOffset, pinkNoise, position, velocity, stateQ, stateQMeasure, 
+                        angularAcceleration, angularVelocity, angularPosition, angularVelocityMeasure, angularPositionMeasure, gen);
                 
 
 

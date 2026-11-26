@@ -4,6 +4,7 @@ void stateUpdate(const double dt, double t, double U, double sigmaU, float actio
         std::array<std::vector<double>, 3> pinkNoise, std::array<double, 3>& position, std::array<double, 3>& velocity, std::array<double, 4>& stateQ, 
         std::array<double, 4>& stateQMeasure, std::array<double, 3>& angularAccleration, std::array<double, 3>& angularVelocity, std::array<double, 2>& psi, 
         std::array<double, 3>& angularVelocityMeasure, std::array<double, 2>& psiMeasure, std::mt19937& gen){ 
+    
     //*****CONSTANT SCALARS***** 
     //rocket constants
     constexpr double centerOfPressure = 0.0877;
@@ -91,31 +92,32 @@ void stateUpdate(const double dt, double t, double U, double sigmaU, float actio
     std::array<double, 3> sumOfTorques = {torqueThrust[0]+torqueAero[0], torqueThrust[1]+torqueAero[1], torqueThrust[2]+torqueAero[2]};
 
     
-    //****ANGULAR POSITION***** 
-    //compute angular accleration
+    //****ANGULAR VELOCITY***** 
+    //compute angular accleration from Newtons 2nd law for rotation
     angularAccleration = {sumOfTorques[0]/ Ixx, sumOfTorques[1]/ Iyy};//Tau=I(alpha)
-
-    //integrate angular accleration for angular velocity 
+    
+    //integrate angularPosition to obtain angularVelocity 
     angularVelocity[0] += dt*angularAccleration[0];
     angularVelocity[1] += dt*angularAccleration[1];
-
-    //determine the measured angular velocity to simulate sensor readings                     
+    
+    //determine measured angularVelocity to simulate sensor readings
     std::normal_distribution<double> gaussianDist(0, deg2rad(0.005)/std::sqrt(dt)); 
     angularVelocityMeasure[0] = angularVelocity[0] + gaussianDist(gen);
     angularVelocityMeasure[1] = angularVelocity[1] + gaussianDist(gen);
 
-    //convert angular velocity to pure quaternion
+    //convert both angularVelocity and measuredAngularVelocity to pure quaternions
     std::array<double, 4> angularVelocityQ = vectorToPureQuaternion(angularVelocity);
     std::array<double, 4> angularVelocityMeasureQ = vectorToPureQuaternion(angularVelocityMeasure);
-
-    //compute first derivative of quaternion
+    
+    //*****ANGULAR POSITION*****
+    //compute first derivative of angularVelocityQuaternion
     std::array<double, 4> stateQTimeDerivative = multiplyQP(stateQ, angularVelocityQ);
     stateQTimeDerivative[0] = stateQTimeDerivative[0]*0.5;
     stateQTimeDerivative[1] = stateQTimeDerivative[1]*0.5;
     stateQTimeDerivative[2] = stateQTimeDerivative[2]*0.5;
     stateQTimeDerivative[3] = stateQTimeDerivative[3]*0.5;
 
-    //compute first derivative of quaternion
+    //compute first derivative of measuredAngularVelocityQuaternion
     std::array<double, 4> stateQTimeDerivativeMeasure = multiplyQP(stateQMeasure, angularVelocityMeasureQ);
     stateQTimeDerivativeMeasure[0] = stateQTimeDerivativeMeasure[0]*0.5;
     stateQTimeDerivativeMeasure[1] = stateQTimeDerivativeMeasure[1]*0.5;
@@ -123,23 +125,23 @@ void stateUpdate(const double dt, double t, double U, double sigmaU, float actio
     stateQTimeDerivativeMeasure[3] = stateQTimeDerivativeMeasure[3]*0.5;
 
 
-    //integrate time derivative of q to update state quaternion
+    //integrate time derivative of stateQ to obtain stateQMeasure
     stateQ[0] += dt*stateQTimeDerivative[0];
     stateQ[1] += dt*stateQTimeDerivative[1];
     stateQ[2] += dt*stateQTimeDerivative[2];
     stateQ[3] += dt*stateQTimeDerivative[3];
-
+    
+    //integrate time derivative of stateQMeasure to obtain stateQMeasure
     stateQMeasure[0] += dt*stateQTimeDerivativeMeasure[0];
     stateQMeasure[1] += dt*stateQTimeDerivativeMeasure[1];
     stateQMeasure[2] += dt*stateQTimeDerivativeMeasure[2];
     stateQMeasure[3] += dt*stateQTimeDerivativeMeasure[3];
 
-    //normalize quaterinon 
+    //normalize quaterinons
     normalizeQuaternion(stateQ);
     normalizeQuaternion(stateQMeasure);
 
     //conver to euler angles
     psi = quaternionToEuler(stateQ); 
-
     psiMeasure = quaternionToEuler(stateQMeasure); 
 }

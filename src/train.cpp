@@ -9,9 +9,10 @@
 #include "../includes/control/slewServos.h"
 
 #include "../includes/physics/rocketPhysics.h"
-
 #include "../includes/math/rocketMath.h"
+
 #include "../includes/readWrite/rwParameters.h"
+#include "../includes/readWrite/dataLog.h"
 #include "../includes/helpers/reward.h"
 #include "../includes/helpers/logStats.h"
 
@@ -28,6 +29,7 @@ int main(void){
     const double simTime = tBurn; 
     const int numEpisodes = 50000;
     const int epBatchAmount = 1000;
+    const int epBatchAmountCSV = 100;
 
     //control
     const double controlDt = 0.05; 
@@ -100,6 +102,7 @@ int main(void){
 
     //return 
     float totalReturnSum = 0.0f;
+    float totalReturnSumCsv = 0.0f;
 
     //episode state
     bool epTerminated = false; 
@@ -132,7 +135,7 @@ int main(void){
 
         //******WIND GEN*****  
         //random wind per episode 
-        std::uniform_real_distribution<double> distU(2.0, 8.0);//random average wind speed
+        std::uniform_real_distribution<double> distU(2.0, 10.0);//random average wind speed
         double U = distU(gen);
         
         std::uniform_real_distribution<double> distIntensity(0.10, 0.20);//random turb intensity
@@ -230,33 +233,31 @@ int main(void){
                 //*****MLP PROPAGATION*****
                 mlpOutputTraining mlpOut = mlpOutTrain(stateVector, w1, w2, w3, b1, b2, b3);//get output
 
-                //store outputs as is for hidden layers
+                //hidden layer outputs stored
                 y1Mat.push_back(mlpOut.y_1);
                 a1Mat.push_back(mlpOut.a_1);
 
                 y2Mat.push_back(mlpOut.y_2);
                 a2Mat.push_back(mlpOut.a_2);
+                
 
-                //store clamped outputs for output layer, for direct use in update loop
-                //x outputs
+                //output layer outputs clamped and stored
                 float meanX = mlpOut.y_out[0];
                 float logSigmaXRaw = mlpOut.y_out[1];
                 float logSigmaX = std::clamp(logSigmaXRaw, lowerBoundLogSigma, upperBoundLogSigma);
 
-                //y outputs
                 float meanY = mlpOut.y_out[2];
                 float logSigmaYRaw = mlpOut.y_out[3];
                 float logSigmaY = std::clamp(logSigmaYRaw, lowerBoundLogSigma, upperBoundLogSigma);
                 
-                //store outputs
-                y3Mat.push_back({meanX, logSigmaX, meanY, logSigmaY});
+                y3Mat.push_back({meanX, logSigmaX, meanY, logSigmaY});//storing clamped outputs
 
 
 
                 //*******ACTIONS******
                 //standard deviations
-                float standardDevX = std::exp(logSigmaX);//e^log(sigma_x) = sigma_x                 
-                float standardDevY = std::exp(logSigmaY);//e^log(sigma_y) = sigma_y               
+                float standardDevX = std::exp(logSigmaX);
+                float standardDevY = std::exp(logSigmaY);
                                                          
                 std::normal_distribution<float> gaussianX(meanX, standardDevX);
                 std::normal_distribution<float> gaussianY(meanY, standardDevY);
@@ -265,7 +266,7 @@ int main(void){
                 float rawActionY = gaussianY(gen);
 
                 //tanh squashing
-                actionX = 0.087*std::tanh(rawActionX);//multiply by 0.087 rads(5 degs) such that scale up to be within action space
+                actionX = 0.087*std::tanh(rawActionX);//multiply by 0.087 rads(5 degs) to scale up to be within action space
                 actionY = 0.087*std::tanh(rawActionY);
 
 
@@ -302,19 +303,18 @@ int main(void){
 
 
         //******VARS FOR UPDATE RULE LOOP******
-        //vector that accumalted grad_t for each term in it, for whole loop in update rule
+        //vector that accumaltes grad_t 
         std::array<float, 11004> accumlatedGrad = {0};
 
-        //return
+        //total return for episode
         float totalEpisodeReturn = 0.0f;
     
         //clamp checks
         bool logSigmaXClamped = false;
         bool logSigmaYClamped = false;
 
-        //nan check for a term in grad_t
+        //nan check for a components in grad_t
         bool isNan = false;
-
 
         //******REINFORCE UPDATE LOOP FOR EPISODE*******
         for(int t = 0; t < timeSteps; t++){
@@ -331,6 +331,7 @@ int main(void){
             if(t == 0){
                 totalEpisodeReturn = return_t;
                 totalReturnSum += totalEpisodeReturn;
+                totalReturnSumCsv += totalEpisodeReturn;
             }
 
             //****GRADIENT TERM*****
@@ -386,8 +387,16 @@ int main(void){
 
         
         //*****END OF EPISODE BATCH LOG******
+
+        //console log
         if((e % epBatchAmount == 0 && e > 0) || e == numEpisodes-1){  
             logStats(e, epBatchAmount, timeStepSum, totalReturnSum, tSum, stateVectorMat, y3Mat);
+        }
+        
+        //csv log
+        if((e % epBatchAmountCSV == 0 && e > 0) || e == numEpisodes-1){
+            returnToCsv(epBatchAmountCSV, e, totalReturnSumCsv/100.0f);
+            totalReturnSumCsv = 0.0f;
         }
 
     }
